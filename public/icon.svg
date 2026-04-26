@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
+  <rect width="64" height="64" rx="14" fill="#ffb6d1"/>
+  <!-- castle silhouette -->
+  <g fill="#ff5d8f">
+    <rect x="10" y="22" width="6" height="28"/>
+    <rect x="22" y="14" width="6" height="36"/>
+    <rect x="36" y="14" width="6" height="36"/>
+    <rect x="48" y="22" width="6" height="28"/>
+    <rect x="14" y="32" width="36" height="20"/>
+  </g>
+  <!-- crown points -->
+  <g fill="#ffd84d">
+    <rect x="22" y="10" width="2" height="4"/>
+    <rect x="26" y="10" width="2" height="4"/>
+    <rect x="36" y="10" width="2" height="4"/>
+    <rect x="40" y="10" width="2" height="4"/>
+  </g>
+  <!-- sunflower -->
+  <g>
+    <rect x="29" y="40" width="6" height="6" fill="#ffd84d"/>
+    <rect x="31" y="42" width="2" height="2" fill="#3a2010"/>
+    <rect x="31" y="46" width="2" height="6" fill="#3aa84a"/>
+  </g>
+</svg>
