@@ -5,7 +5,15 @@ import { tick } from './game/decay';
 import { giveCoke, giveJager, giveWeed, water, tap as tapAction } from './game/actions';
 import { phaseFor } from './game/time';
 import { activityFor, naturalPoseFor, activityLabel } from './game/routine';
-import { useIdle, useNow, useTilt, requestTiltPermission, haptic } from './game/hooks';
+import {
+  useIdle,
+  useNow,
+  useTilt,
+  requestTiltPermission,
+  haptic,
+  useShake,
+  requestMotionPermission,
+} from './game/hooks';
 import {
   fetchSass,
   fetchLetterOnReturn,
@@ -34,6 +42,7 @@ import { Letter } from './components/Letter';
 import { Journal } from './components/Journal';
 import { JournalButton } from './components/JournalButton';
 import { ChatSheet } from './components/ChatSheet';
+import { FlowerInfo } from './components/FlowerInfo';
 
 const LETTER_THRESHOLD_MIN = 90;
 const SASS_COOLDOWN_MS = 2400;
@@ -49,6 +58,10 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatBusy, setChatBusy] = useState(false);
   const [tiltGranted, setTiltGranted] = useState(false);
+  const [motionGranted, setMotionGranted] = useState(false);
+  const [shakeBurst, setShakeBurst] = useState(0);
+  const [tappedFlower, setTappedFlower] = useState<string | null>(null);
+  const [booted, setBooted] = useState(false);
 
   const lastSassAt = useRef(0);
   const initRanRef = useRef(false);
@@ -70,6 +83,12 @@ export default function App() {
       ? naturalPose
       : tickedState.pose;
 
+  // Mark booted on first paint so the splash can fade out.
+  useEffect(() => {
+    const t = setTimeout(() => setBooted(true), 200);
+    return () => clearTimeout(t);
+  }, []);
+
   // Persist + advance state once per minute.
   useEffect(() => {
     setState(tickedState);
@@ -81,7 +100,7 @@ export default function App() {
     saveState(state);
   }, [state]);
 
-  // First-run + return-from-absence flow. Runs once on mount.
+  // First-run + return-from-absence + daily letter + companion unlocks.
   useEffect(() => {
     if (initRanRef.current) return;
     initRanRef.current = true;
@@ -144,7 +163,6 @@ export default function App() {
         setJournalUnread(true);
       }
 
-      // Companion newly available?
       const newCompanion = newlyAvailableCompanion(working);
       if (newCompanion) {
         const text = await fetchMilestoneLetter(
@@ -175,10 +193,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Princess says hello after the welcome letter is dismissed.
+  // Princess says hello once the welcome letter is dismissed (or right away).
   useEffect(() => {
     if (letter !== null) return;
-    const t = setTimeout(() => requestSass(null), 500);
+    const t = setTimeout(() => requestSass(null), 600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [letter]);
@@ -247,7 +265,6 @@ export default function App() {
     [state, requestSass, handleMilestone],
   );
 
-  // Two-way chat.
   const sendMessage = useCallback(
     async (text: string) => {
       const userMsg: ChatMessage = {
@@ -297,8 +314,32 @@ export default function App() {
   const enableTilt = useCallback(async () => {
     const ok = await requestTiltPermission();
     setTiltGranted(ok);
+    const motionOk = await requestMotionPermission();
+    setMotionGranted(motionOk);
   }, []);
 
+  // Long-press princess → secret line.
+  const handleLongPress = useCallback(() => {
+    haptic('heavy');
+    const lines = [
+      'oh. that\'s nice actually.',
+      'don\'t stop. keep doing the thing.',
+      'i can\'t believe you\'re still here. i love it.',
+      'this is treason. continue.',
+      'you\'re lovely. don\'t tell anyone i said that.',
+    ];
+    setSpeech(lines[Math.floor(Math.random() * lines.length)]!);
+  }, []);
+
+  // Shake → confetti burst.
+  const onShake = useCallback(() => {
+    haptic('heavy');
+    setShakeBurst((n) => n + 1);
+    setSpeech('WHOA. easy with the kingdom.');
+  }, []);
+  useShake(motionGranted ? onShake : () => {});
+
+  // Stoned filter on the whole scene.
   const stonedFilter =
     tickedState.high > 0.5
       ? `saturate(${1 + tickedState.high * 0.18}) hue-rotate(${tickedState.high * 4}deg) blur(${
@@ -320,6 +361,16 @@ export default function App() {
 
   const companions = useMemo(() => unlockedCompanions(tickedState), [tickedState]);
 
+  const flowerOnTap = useCallback(
+    (id: string | null) => setTappedFlower(id),
+    [],
+  );
+
+  const tappedFlowerData = useMemo(
+    () => tickedState.garden.find((f) => f.id === tappedFlower) ?? null,
+    [tickedState.garden, tappedFlower],
+  );
+
   return (
     <div
       style={{
@@ -334,15 +385,16 @@ export default function App() {
       <Background date={date} />
       <Particles phase={phase} />
 
-      {/* Princess — main subject layer. data-drop-target lets dragged items
-          from the action tray land on her and trigger the matching action. */}
+      {/* Princess — main subject. Sized in vh so she fits every phone. */}
       <div
         data-drop-target="princess"
         style={{
           position: 'absolute',
           left: '50%',
-          bottom: 130,
+          bottom: '14vh',
           transform: `translateX(calc(-50% + ${tiltShift}px))`,
+          width: 'min(70vw, 320px)',
+          height: 'min(58vh, 460px)',
           zIndex: 3,
         }}
       >
@@ -355,6 +407,7 @@ export default function App() {
             haptic('light');
             setChatOpen(true);
           }}
+          onLongPress={handleLongPress}
         />
       </div>
 
@@ -362,6 +415,7 @@ export default function App() {
         itemsOnTable={tickedState.itemsOnTable}
         flowers={tickedState.garden}
         now={now}
+        onFlowerTap={flowerOnTap}
       />
 
       <Companions companions={companions} />
@@ -377,7 +431,19 @@ export default function App() {
       />
       <ChatHint visible={!chatOpen && !letter && !journalOpen} />
 
-      {!tiltGranted && needsTiltPermission() && <TiltCTA onTap={enableTilt} />}
+      {(!tiltGranted || !motionGranted) && needsMotionPermission() && (
+        <SensorCTA onTap={enableTilt} />
+      )}
+
+      <ShakeBurst nonce={shakeBurst} />
+
+      {tappedFlowerData && (
+        <FlowerInfo
+          name={tappedFlowerData.name}
+          plantedAt={tappedFlowerData.plantedAt}
+          onClose={() => setTappedFlower(null)}
+        />
+      )}
 
       {letter !== null && <Letter text={letter} onClose={() => setLetter(null)} />}
       {journalOpen && (
@@ -396,18 +462,21 @@ export default function App() {
         onSend={sendMessage}
         onClose={() => setChatOpen(false)}
       />
+
+      <Splash visible={!booted} />
     </div>
   );
 }
 
-const needsTiltPermission = () => {
+const needsMotionPermission = () => {
   const D = (window as unknown as {
     DeviceOrientationEvent?: { requestPermission?: () => unknown };
-  }).DeviceOrientationEvent;
-  return !!D?.requestPermission;
+    DeviceMotionEvent?: { requestPermission?: () => unknown };
+  });
+  return !!(D.DeviceOrientationEvent?.requestPermission || D.DeviceMotionEvent?.requestPermission);
 };
 
-const TiltCTA = ({ onTap }: { onTap: () => void }) => (
+const SensorCTA = ({ onTap }: { onTap: () => void }) => (
   <button
     onClick={onTap}
     style={{
@@ -422,9 +491,10 @@ const TiltCTA = ({ onTap }: { onTap: () => void }) => (
       fontWeight: 700,
       color: '#3a1340',
       zIndex: 11,
+      letterSpacing: 0.4,
     }}
   >
-    enable tilt
+    enable tilt + shake
   </button>
 );
 
@@ -463,7 +533,7 @@ const Title = ({ flowers, activity }: { flowers: number; activity: string }) => 
 const ChatHint = ({ visible }: { visible: boolean }) => {
   const [shown, setShown] = useState(true);
   useEffect(() => {
-    const t = setTimeout(() => setShown(false), 6000);
+    const t = setTimeout(() => setShown(false), 7000);
     return () => clearTimeout(t);
   }, []);
   if (!visible || !shown) return null;
@@ -477,15 +547,86 @@ const ChatHint = ({ visible }: { visible: boolean }) => {
         background: 'rgba(0,0,0,0.55)',
         color: '#fff',
         fontSize: 11,
-        padding: '6px 12px',
-        borderRadius: 12,
+        padding: '6px 14px',
+        borderRadius: 14,
         letterSpacing: 0.8,
         animation: 'pop 0.4s ease',
         zIndex: 9,
         pointerEvents: 'none',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
       }}
     >
-      tap her to chat · drag items onto her
+      tap her to chat · drag items onto her · long-press for secrets
     </div>
   );
 };
+
+const ShakeBurst = ({ nonce }: { nonce: number }) => {
+  const [bits, setBits] = useState<{ id: number; x: number; y: number; delay: number }[]>([]);
+  useEffect(() => {
+    if (nonce === 0) return;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const next = Array.from({ length: 24 }, (_, i) => ({
+      id: nonce * 100 + i,
+      x: cx + (Math.random() - 0.5) * 200,
+      y: cy + (Math.random() - 0.5) * 300,
+      delay: Math.random() * 200,
+    }));
+    setBits(next);
+    const t = setTimeout(() => setBits([]), 1800);
+    return () => clearTimeout(t);
+  }, [nonce]);
+  if (bits.length === 0) return null;
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 30 }}>
+      {bits.map((b) => (
+        <div
+          key={b.id}
+          style={{
+            position: 'absolute',
+            left: b.x,
+            top: b.y,
+            fontSize: 22,
+            animation: 'fizz 1.6s ease-out forwards',
+            animationDelay: `${b.delay}ms`,
+          }}
+        >
+          ✨
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const Splash = ({ visible }: { visible: boolean }) => (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'linear-gradient(180deg, #ffd6ec 0%, #ff9bbf 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'column',
+      zIndex: 99,
+      opacity: visible ? 1 : 0,
+      pointerEvents: visible ? 'auto' : 'none',
+      transition: 'opacity 0.5s ease',
+    }}
+  >
+    <div
+      style={{
+        fontSize: 14,
+        fontWeight: 800,
+        letterSpacing: 4,
+        color: '#3a1338',
+        marginBottom: 8,
+      }}
+    >
+      PRINCESS RAJVI
+    </div>
+    <div style={{ fontSize: 28 }}>🌻</div>
+  </div>
+);

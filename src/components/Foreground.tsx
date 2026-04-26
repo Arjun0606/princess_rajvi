@@ -5,6 +5,7 @@ type Props = {
   itemsOnTable: ItemOnTable[];
   flowers: SunflowerData[];
   now: number;
+  onFlowerTap?: (id: string | null) => void;
 };
 
 const ITEM_FILE: Record<ItemOnTable['kind'], string> = {
@@ -14,14 +15,11 @@ const ITEM_FILE: Record<ItemOnTable['kind'], string> = {
   sunflower: '/art/item-sunflower.png',
 };
 
-export const Foreground = ({ itemsOnTable, flowers, now }: Props) => {
+export const Foreground = ({ itemsOnTable, flowers, now, onFlowerTap }: Props) => {
   return (
     <>
-      {/* The side table — items appear here when given */}
       <SideTable items={itemsOnTable} />
-
-      {/* Foreground sunflower garden */}
-      <GardenForeground flowers={flowers} now={now} />
+      <GardenForeground flowers={flowers} now={now} onFlowerTap={onFlowerTap} />
     </>
   );
 };
@@ -120,9 +118,11 @@ const GROWTH_DURATION_MS = 1000 * 60 * 60 * 8;
 const GardenForeground = ({
   flowers,
   now,
+  onFlowerTap,
 }: {
   flowers: SunflowerData[];
   now: number;
+  onFlowerTap?: (id: string | null) => void;
 }) => (
   <div
     style={{
@@ -138,10 +138,9 @@ const GardenForeground = ({
     {flowers.map((f, i) => {
       const age = now - f.plantedAt;
       const growth = Math.min(1, age / GROWTH_DURATION_MS);
-      // Distribute deterministically from id hash so positions feel stable.
       const hash = [...f.id].reduce((a, c) => a + c.charCodeAt(0), 0);
       const xPct = (hash % 90) + 5;
-      const z = (hash % 3); // depth lane: 0 closest, 2 furthest
+      const z = (hash % 3);
       const scale = (0.7 + (2 - z) * 0.18) * (0.4 + growth * 0.6);
       return (
         <FlowerSprite
@@ -151,6 +150,7 @@ const GardenForeground = ({
           scale={scale}
           variant={f.variant}
           delay={i * 0.3}
+          onTap={onFlowerTap ? () => onFlowerTap(f.id) : undefined}
         />
       );
     })}
@@ -169,17 +169,20 @@ const FlowerSprite = ({
   scale,
   variant,
   delay,
+  onTap,
 }: {
   xPct: number;
   z: number;
   scale: number;
   variant: 0 | 1 | 2;
   delay: number;
+  onTap?: () => void;
 }) => {
   const p = FLOWER_PALETTES[variant];
   const yOffset = z * 18;
   return (
     <div
+      onClick={onTap}
       style={{
         position: 'absolute',
         left: `${xPct}%`,
@@ -189,6 +192,8 @@ const FlowerSprite = ({
         animation: 'sway 3.5s ease-in-out infinite',
         animationDelay: `${delay}s`,
         opacity: 0.6 + (2 - z) * 0.2,
+        pointerEvents: onTap ? 'auto' : 'none',
+        cursor: onTap ? 'pointer' : 'default',
       }}
     >
       <svg viewBox="0 0 60 100" width="60" height="100" style={{ overflow: 'visible' }}>

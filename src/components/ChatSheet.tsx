@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChatMessage, Pose } from '../game/state';
+import { useKeyboardOffset } from '../game/hooks';
 
 type Props = {
   open: boolean;
@@ -24,6 +25,7 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
   const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const keyboardOffset = useKeyboardOffset();
 
   useEffect(() => {
     if (open) requestAnimationFrame(() => setMounted(true));
@@ -33,7 +35,7 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, busy]);
+  }, [messages, busy, keyboardOffset]);
 
   if (!open) return null;
 
@@ -65,7 +67,7 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
         style={{
           width: '100%',
           maxWidth: 520,
-          maxHeight: '78vh',
+          maxHeight: keyboardOffset > 0 ? `calc(100vh - ${keyboardOffset}px - 24px)` : '78vh',
           minHeight: 360,
           background:
             'linear-gradient(180deg, #fff5e8 0%, #ffe1c6 100%)',
@@ -73,8 +75,10 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
           border: '4px solid #c4856b',
           borderBottomWidth: 0,
           boxShadow: '0 -16px 40px rgba(0,0,0,0.45)',
-          transform: mounted ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 0.4s cubic-bezier(.2,.7,.2,1)',
+          transform: mounted
+            ? `translateY(-${keyboardOffset}px)`
+            : 'translateY(100%)',
+          transition: 'transform 0.35s cubic-bezier(.2,.7,.2,1), max-height 0.25s ease',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
