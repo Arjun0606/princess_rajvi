@@ -4,12 +4,10 @@ import { loadState, saveState } from './game/persistence';
 import { tick } from './game/decay';
 import { giveCoke, giveJager, giveWeed, water, tap as tapAction } from './game/actions';
 import { phaseFor } from './game/time';
-import { activityFor, naturalPoseFor, activityLabel } from './game/routine';
+import { activityFor, activityLabel } from './game/routine';
 import {
   useIdle,
   useNow,
-  useTilt,
-  requestTiltPermission,
   haptic,
   useShake,
   requestMotionPermission,
@@ -28,15 +26,11 @@ import {
   checkMilestone,
   recordMilestone,
 } from './game/journal';
-import { newlyAvailableCompanion, unlockedCompanions } from './game/companions';
+import { newlyAvailableCompanion } from './game/companions';
 
 import { Background } from './components/Background';
-import { PrincessImage } from './components/PrincessImage';
 import { Foreground } from './components/Foreground';
-import { Companions } from './components/Companions';
 import { Particles } from './components/Particles';
-import { AtmosphericEvents } from './components/AtmosphericEvents';
-import { Settings } from './components/Settings';
 import { Stats } from './components/Stats';
 import { ActionTray } from './components/ActionTray';
 import { SpeechBubble } from './components/SpeechBubble';
@@ -44,6 +38,7 @@ import { Letter } from './components/Letter';
 import { Journal } from './components/Journal';
 import { JournalButton } from './components/JournalButton';
 import { ChatSheet } from './components/ChatSheet';
+import { Settings } from './components/Settings';
 import { FlowerInfo } from './components/FlowerInfo';
 
 const LETTER_THRESHOLD_MIN = 90;
@@ -59,7 +54,6 @@ export default function App() {
   const [journalUnread, setJournalUnread] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatBusy, setChatBusy] = useState(false);
-  const [tiltGranted, setTiltGranted] = useState(false);
   const [motionGranted, setMotionGranted] = useState(false);
   const [shakeBurst, setShakeBurst] = useState(0);
   const [tappedFlower, setTappedFlower] = useState<string | null>(null);
@@ -71,28 +65,20 @@ export default function App() {
 
   const now = useNow(60_000);
   const date = useMemo(() => new Date(now), [now]);
-  const idle = useIdle(60_000);
-  const tilt = useTilt();
+  const idle = useIdle(120_000);
 
   const tickedState = useMemo(() => tick(state, now), [state, now]);
   const phase = phaseFor(date.getHours());
   const activity = activityFor(date.getHours());
   const mood = moodFor(tickedState, date.getHours());
   const sleeping = activity === 'sleeping' || (idle && phase === 'night');
-  const naturalPose = naturalPoseFor(activity);
-  const visiblePose = sleeping
-    ? 'sleep'
-    : tickedState.pose === 'default'
-      ? naturalPose
-      : tickedState.pose;
+  const visiblePose = sleeping ? 'sleep' : (tickedState.pose === 'default' ? 'default' : tickedState.pose);
 
-  // Mark booted on first paint so the splash can fade out.
   useEffect(() => {
     const t = setTimeout(() => setBooted(true), 200);
     return () => clearTimeout(t);
   }, []);
 
-  // Persist + advance state once per minute.
   useEffect(() => {
     setState(tickedState);
     saveState(tickedState);
@@ -103,7 +89,6 @@ export default function App() {
     saveState(state);
   }, [state]);
 
-  // First-run + return-from-absence + daily letter + companion unlocks.
   useEffect(() => {
     if (initRanRef.current) return;
     initRanRef.current = true;
@@ -196,10 +181,9 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Princess says hello once the welcome letter is dismissed (or right away).
   useEffect(() => {
     if (letter !== null) return;
-    const t = setTimeout(() => requestSass(null), 600);
+    const t = setTimeout(() => requestSass(null), 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [letter]);
@@ -314,27 +298,11 @@ export default function App() {
     [state, mood, activity],
   );
 
-  const enableTilt = useCallback(async () => {
-    const ok = await requestTiltPermission();
-    setTiltGranted(ok);
-    const motionOk = await requestMotionPermission();
-    setMotionGranted(motionOk);
+  const enableMotion = useCallback(async () => {
+    const ok = await requestMotionPermission();
+    setMotionGranted(ok);
   }, []);
 
-  // Long-press princess → secret line.
-  const handleLongPress = useCallback(() => {
-    haptic('heavy');
-    const lines = [
-      'oh. that\'s nice actually.',
-      'don\'t stop. keep doing the thing.',
-      'i can\'t believe you\'re still here. i love it.',
-      'this is treason. continue.',
-      'you\'re lovely. don\'t tell anyone i said that.',
-    ];
-    setSpeech(lines[Math.floor(Math.random() * lines.length)]!);
-  }, []);
-
-  // Shake → confetti burst.
   const onShake = useCallback(() => {
     haptic('heavy');
     setShakeBurst((n) => n + 1);
@@ -342,15 +310,12 @@ export default function App() {
   }, []);
   useShake(motionGranted ? onShake : () => {});
 
-  // Stoned filter on the whole scene.
   const stonedFilter =
     tickedState.high > 0.5
       ? `saturate(${1 + tickedState.high * 0.18}) hue-rotate(${tickedState.high * 4}deg) blur(${
           Math.min(tickedState.high * 0.4, 1.0)
         }px)`
       : undefined;
-
-  const tiltShift = tiltGranted ? tilt * 14 : 0;
 
   const openJournal = () => {
     setJournalOpen(true);
@@ -360,13 +325,6 @@ export default function App() {
   const sortedJournal: JournalEntry[] = useMemo(
     () => [...tickedState.journal].sort((a, b) => b.at - a.at),
     [tickedState.journal],
-  );
-
-  const companions = useMemo(() => unlockedCompanions(tickedState), [tickedState]);
-
-  const flowerOnTap = useCallback(
-    (id: string | null) => setTappedFlower(id),
-    [],
   );
 
   const tappedFlowerData = useMemo(
@@ -389,6 +347,16 @@ export default function App() {
     window.location.reload();
   }, []);
 
+  const handleLongPress = () => {
+    haptic('heavy');
+    const lines = [
+      'oh. that\'s nice actually.',
+      'don\'t stop. keep doing the thing.',
+      'i can\'t believe you\'re still here. i love it.',
+    ];
+    setSpeech(lines[Math.floor(Math.random() * lines.length)]!);
+  };
+
   return (
     <div
       style={{
@@ -401,46 +369,27 @@ export default function App() {
       }}
     >
       <Background date={date} />
-      <AtmosphericEvents phase={phase} />
       <Particles phase={phase} />
 
-      {/* Princess — main subject. Sized in vh so she fits every phone. */}
-      <div
-        data-drop-target="princess"
-        style={{
-          position: 'absolute',
-          left: '50%',
-          bottom: '14vh',
-          transform: `translateX(calc(-50% + ${tiltShift}px))`,
-          width: 'min(70vw, 320px)',
-          height: 'min(58vh, 460px)',
-          zIndex: 3,
+      {/* Tap-target over the princess area in the background scene.
+          Tap → chat. Long-press → secret line. Drop-target for items. */}
+      <PrincessTapZone
+        onTap={() => {
+          haptic('light');
+          setChatOpen(true);
         }}
-      >
-        <PrincessImage
-          pose={visiblePose}
-          drunk={tickedState.drunk}
-          high={tickedState.high}
-          sleeping={sleeping}
-          onTap={() => {
-            haptic('light');
-            setChatOpen(true);
-          }}
-          onLongPress={handleLongPress}
-        />
-      </div>
+        onLongPress={handleLongPress}
+      />
 
       <Foreground
         itemsOnTable={tickedState.itemsOnTable}
         flowers={tickedState.garden}
         now={now}
-        onFlowerTap={flowerOnTap}
+        onFlowerTap={setTappedFlower}
       />
 
-      <Companions companions={companions} />
-
       <Stats stats={tickedState.stats} />
-      <Title flowers={tickedState.flowersAllTime} activity={activityLabel(activity)} />
+      <Title flowers={tickedState.flowersAllTime} activity={activityLabel(activity)} pose={visiblePose} />
       <SpeechBubble text={speech} loading={speechLoading} />
       <ActionTray onAction={doAction} />
       <JournalButton
@@ -449,11 +398,9 @@ export default function App() {
         onClick={openJournal}
       />
       <SettingsButton onClick={() => setSettingsOpen(true)} />
-      <ChatHint visible={!chatOpen && !letter && !journalOpen} />
+      <ChatHint visible={!chatOpen && !letter && !journalOpen && tickedState.journal.length <= 1} />
 
-      {(!tiltGranted || !motionGranted) && needsMotionPermission() && (
-        <SensorCTA onTap={enableTilt} />
-      )}
+      {!motionGranted && needsMotionPermission() && <SensorCTA onTap={enableMotion} />}
 
       <ShakeBurst nonce={shakeBurst} />
 
@@ -498,10 +445,60 @@ export default function App() {
 
 const needsMotionPermission = () => {
   const D = (window as unknown as {
-    DeviceOrientationEvent?: { requestPermission?: () => unknown };
     DeviceMotionEvent?: { requestPermission?: () => unknown };
   });
-  return !!(D.DeviceOrientationEvent?.requestPermission || D.DeviceMotionEvent?.requestPermission);
+  return !!D.DeviceMotionEvent?.requestPermission;
+};
+
+// Invisible button covering the area in the background where princess is
+// rendered. Forwards taps to the chat-open handler and acts as the drop
+// target for dragged items.
+const PrincessTapZone = ({
+  onTap,
+  onLongPress,
+}: {
+  onTap: () => void;
+  onLongPress: () => void;
+}) => {
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedAt = useRef<number>(0);
+
+  return (
+    <div
+      data-drop-target="princess"
+      onPointerDown={() => {
+        startedAt.current = Date.now();
+        if (longPressTimer.current) clearTimeout(longPressTimer.current);
+        longPressTimer.current = setTimeout(() => {
+          onLongPress();
+          longPressTimer.current = null;
+        }, 600);
+      }}
+      onPointerUp={() => {
+        if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+          if (Date.now() - startedAt.current < 220) onTap();
+        }
+      }}
+      onPointerCancel={() => {
+        if (longPressTimer.current) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+        }
+      }}
+      style={{
+        position: 'absolute',
+        left: '20%',
+        right: '20%',
+        top: '30%',
+        bottom: '20%',
+        zIndex: 3,
+        cursor: 'pointer',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    />
+  );
 };
 
 const SettingsButton = ({ onClick }: { onClick: () => void }) => (
@@ -548,11 +545,19 @@ const SensorCTA = ({ onTap }: { onTap: () => void }) => (
       letterSpacing: 0.4,
     }}
   >
-    enable tilt + shake
+    enable shake
   </button>
 );
 
-const Title = ({ flowers, activity }: { flowers: number; activity: string }) => (
+const Title = ({
+  flowers,
+  activity,
+  pose: _pose,
+}: {
+  flowers: number;
+  activity: string;
+  pose: string;
+}) => (
   <div
     style={{
       position: 'absolute',
@@ -562,9 +567,9 @@ const Title = ({ flowers, activity }: { flowers: number; activity: string }) => 
       textAlign: 'center',
       color: '#fff',
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: 800,
       letterSpacing: 2.5,
-      textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+      textShadow: '0 2px 8px rgba(0,0,0,0.6)',
       zIndex: 5,
       pointerEvents: 'none',
     }}
@@ -611,7 +616,7 @@ const ChatHint = ({ visible }: { visible: boolean }) => {
         WebkitBackdropFilter: 'blur(8px)',
       }}
     >
-      tap her to chat · drag items onto her · long-press for secrets
+      tap princess to chat
     </div>
   );
 };

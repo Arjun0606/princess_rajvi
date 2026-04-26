@@ -31,8 +31,8 @@ CHARACTER: Princess Rajvi — a young south asian princess with chunky pixel str
 WORLD: A small private terrace of a pink stone castle. Pale rose marble floor. Curved ornate pink balustrade. Endless sunflower meadow on rolling hills below. Marble side table on the right. Sunflower planter on the left. Pink rose vines on the right wall. Castle's pink turrets visible upper right.
 `.trim();
 
-const SCENE = (timeOfDay, palette) =>
-  `${STYLE_PREAMBLE}\n\nSCENE: The terrace at ${timeOfDay}. ${palette}. Sharp pixel art with no anti-aliasing. NO PEOPLE in the image, only the empty terrace and surroundings. Mobile portrait composition: terrace floor in the bottom third, balustrade across the middle, sky/meadow filling the top two-thirds.`;
+const SCENE = (timeOfDay, palette, princessPose) =>
+  `${STYLE_PREAMBLE}\n\nSCENE: A pink castle terrace at ${timeOfDay}. ${palette}. Sharp 16-bit pixel art, no anti-aliasing, no smooth gradients, no photo-real shading. Stardew Valley / Eastward / Sea of Stars aesthetic.\n\nThe scene shows Princess Rajvi (south asian princess described above) ${princessPose} on a pale rose marble terrace. Curved pink stone balustrade behind her overlooking a sunflower meadow. A small marble side table on the right. A planter of sunflowers on the left. Pink rose vines on the right wall. Distant pink castle turrets in the upper right. Mobile portrait composition with princess centered, slightly toward the lower third.`;
 
 const SPRITE = (description) =>
   `${STYLE_PREAMBLE}\n\nSPRITE: ${description}. Full body, transparent background, character isolated and centered. Render as a true pixel art sprite with sharp edges and no anti-aliasing. The character takes up roughly 80% of the frame height.`;
@@ -44,13 +44,14 @@ const UI = (description) =>
   `${STYLE_PREAMBLE.split('\n')[0]}\n\nUI ELEMENT: ${description}. Transparent background. Pixel art, dark outline, sharp pixels.`;
 
 const ASSETS = [
-  // ---- Backgrounds (square 1024x1024 — the scene will be cropped via CSS object-fit) ----
+  // ---- Backgrounds with princess (4 time-of-day variants) ----
   {
     file: 'bg-dawn.png',
     size: '1024x1024',
     prompt: SCENE(
       'dawn (early morning)',
-      'Soft peach and rose-pink sky with a small chunky pixel sun rising over the distant horizon of sunflower fields. Marble floor catches the first warm light. Cool magenta and peach palette',
+      'Soft peach and rose-pink dawn sky with a small chunky pixel sun rising over the distant horizon. Marble floor catches the first warm light. Warm peach / rose / pale-pink palette',
+      'just waking up, stretching gently with arms above her head, sleepy soft smile',
     ),
   },
   {
@@ -58,15 +59,17 @@ const ASSETS = [
     size: '1024x1024',
     prompt: SCENE(
       'midday',
-      'Bright cheerful blue pixel sky with chunky pixel white clouds. Sunflower meadow in full bloom stretching to the horizon. Marble floor washed in golden midday light. Bright cyan / yellow / green palette',
+      'Bright cheerful blue pixel sky with chunky pixel white clouds. Sunflower meadow in full bloom. Marble floor in golden midday light. Bright cyan / yellow / green palette',
+      'standing centered with hands clasped in front of her, gentle smile, holding a single bright sunflower',
     ),
   },
   {
     file: 'bg-dusk.png',
     size: '1024x1024',
     prompt: SCENE(
-      'sunset',
-      'Sky is a pixel gradient of orange-pink-lavender with chunky pink clouds, the pixel sun setting behind the meadow. Sunflowers glow gold in the last light. Warm orange / pink / coral palette',
+      'sunset (cocktail hour)',
+      'Sky is a vivid pixel gradient of orange-pink-lavender with chunky pink clouds, sun setting on the horizon. Sunflowers glow gold in the last light. Warm orange / pink / coral palette',
+      'standing centered, mischievous grin with a small wink, raising a tiny shot glass of dark green Jägermeister with both hands toward the viewer in a toast',
     ),
   },
   {
@@ -74,7 +77,8 @@ const ASSETS = [
     size: '1024x1024',
     prompt: SCENE(
       'night',
-      'Deep navy purple pixel sky with a chunky pixel full moon and scattered pixel stars. A few firefly pixels glowing in the meadow. Warm candlelight from inside the castle pours onto the marble floor. Cool purple / midnight blue palette with warm yellow accents',
+      'Deep navy purple pixel night sky with a chunky pixel full moon and scattered pixel stars. Fireflies in the meadow. Warm candlelight pours from inside the castle. Cool purple / midnight blue palette with warm yellow accents',
+      'sitting cross-legged on the floor, eyes half-closed in a deeply relaxed expression, holding a tiny lit joint between her fingers with a small grey smoke curl rising',
     ),
   },
 
@@ -173,12 +177,15 @@ const ASSETS = [
 
 const ENDPOINT = 'https://api.openai.com/v1/images/generations';
 
+const MODEL = process.env.IMAGE_MODEL || 'dall-e-3';
+
 async function generate(asset) {
   const body = {
-    model: 'gpt-image-2',
+    model: MODEL,
     prompt: asset.prompt,
     size: asset.size,
     n: 1,
+    ...(MODEL === 'dall-e-3' ? { response_format: 'b64_json', quality: 'standard' } : {}),
   };
   const r = await fetch(ENDPOINT, {
     method: 'POST',
