@@ -42,16 +42,16 @@ const Bubble = ({ children }: { children: React.ReactNode }) => (
     style={{
       position: 'absolute',
       left: '50%',
-      // Anchor above princess head — princess fills 58vh from 14vh,
-      // so her head is around 60vh from bottom. Position bubble just above.
-      bottom: 'min(64vh, 540px)',
+      // Sits below the title and above princess head. Top-positioned so it
+      // stays visible no matter how short the viewport is.
+      top: 'calc(env(safe-area-inset-top, 0) + 130px)',
       transform: 'translateX(-50%)',
       maxWidth: 'min(82vw, 320px)',
       background: 'rgba(255, 248, 240, 0.96)',
       color: '#3a1a30',
-      padding: '14px 18px',
-      borderRadius: 22,
-      fontSize: 15.5,
+      padding: '12px 16px',
+      borderRadius: 20,
+      fontSize: 14.5,
       fontWeight: 600,
       lineHeight: 1.4,
       textAlign: 'center',
