@@ -31,6 +31,7 @@ export const loadState = (): GameState => {
       journal: parsed.journal ?? [],
       itemsOnTable: parsed.itemsOnTable ?? [],
       milestones: parsed.milestones ?? {},
+      chats: parsed.chats ?? [],
     };
   } catch {
     return initialState(Date.now());

@@ -53,6 +53,15 @@ export type ItemOnTable = {
   spot: number;
 };
 
+// Two-way conversation messages with princess. Persisted across sessions
+// so a real friendship feels like it accumulates.
+export type ChatMessage = {
+  id: string;
+  at: number;
+  role: 'user' | 'princess';
+  text: string;
+};
+
 export type GameState = {
   stats: {
     sass: Stat;
@@ -79,6 +88,7 @@ export type GameState = {
   journal: JournalEntry[];
   lastDailyLetterAt: number;
   milestones: Record<string, number>; // milestone id → timestamp first hit
+  chats: ChatMessage[];
 };
 
 export const MAX_STAT = 100;
@@ -116,6 +126,7 @@ export const initialState = (now: number): GameState => ({
   journal: [],
   lastDailyLetterAt: 0,
   milestones: {},
+  chats: [],
 });
 
 export const clamp = (n: number, lo = MIN_STAT, hi = MAX_STAT) =>

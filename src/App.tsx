@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GameState, ActionKind, moodFor, JournalEntry } from './game/state';
+import { GameState, ActionKind, ChatMessage, JournalEntry, moodFor } from './game/state';
 import { loadState, saveState } from './game/persistence';
 import { tick } from './game/decay';
 import { giveCoke, giveJager, giveWeed, water, tap as tapAction } from './game/actions';
@@ -12,21 +12,32 @@ import {
   fetchDailyLetter,
   fetchMilestoneLetter,
   fetchFirstRunLetter,
+  fetchReply,
 } from './ai/princessSays';
-import { addEntry, shouldWriteDailyLetter, checkMilestone, recordMilestone } from './game/journal';
+import {
+  addEntry,
+  shouldWriteDailyLetter,
+  checkMilestone,
+  recordMilestone,
+} from './game/journal';
+import { newlyAvailableCompanion, unlockedCompanions } from './game/companions';
 
 import { Background } from './components/Background';
 import { PrincessImage } from './components/PrincessImage';
 import { Foreground } from './components/Foreground';
+import { Companions } from './components/Companions';
+import { Particles } from './components/Particles';
 import { Stats } from './components/Stats';
 import { ActionTray } from './components/ActionTray';
 import { SpeechBubble } from './components/SpeechBubble';
 import { Letter } from './components/Letter';
 import { Journal } from './components/Journal';
 import { JournalButton } from './components/JournalButton';
+import { ChatSheet } from './components/ChatSheet';
 
 const LETTER_THRESHOLD_MIN = 90;
 const SASS_COOLDOWN_MS = 2400;
+const MAX_CHAT_MESSAGES = 80;
 
 export default function App() {
   const [state, setState] = useState<GameState>(() => loadState());
@@ -35,6 +46,8 @@ export default function App() {
   const [letter, setLetter] = useState<string | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const [journalUnread, setJournalUnread] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatBusy, setChatBusy] = useState(false);
   const [tiltGranted, setTiltGranted] = useState(false);
 
   const lastSassAt = useRef(0);
@@ -49,9 +62,13 @@ export default function App() {
   const phase = phaseFor(date.getHours());
   const activity = activityFor(date.getHours());
   const mood = moodFor(tickedState, date.getHours());
-  const sleeping = activity === 'sleeping' || (idle && (phase === 'night'));
+  const sleeping = activity === 'sleeping' || (idle && phase === 'night');
   const naturalPose = naturalPoseFor(activity);
-  const visiblePose = sleeping ? 'sleep' : (tickedState.pose === 'default' ? naturalPose : tickedState.pose);
+  const visiblePose = sleeping
+    ? 'sleep'
+    : tickedState.pose === 'default'
+      ? naturalPose
+      : tickedState.pose;
 
   // Persist + advance state once per minute.
   useEffect(() => {
@@ -71,7 +88,8 @@ export default function App() {
     (async () => {
       const initial = loadState();
       const minutesAway = Math.floor((Date.now() - initial.lastSeen) / 60000);
-      const isFirstRun = initial.journal.length === 0 && initial.startedAt > Date.now() - 60_000;
+      const isFirstRun =
+        initial.journal.length === 0 && initial.startedAt > Date.now() - 60_000;
       const today = new Date();
 
       if (isFirstRun) {
@@ -84,11 +102,7 @@ export default function App() {
           minutesAway: 0,
         });
         const updated: GameState = {
-          ...addEntry(initial, {
-            at: Date.now(),
-            kind: 'firstrun',
-            text,
-          }),
+          ...addEntry(initial, { at: Date.now(), kind: 'firstrun', text }),
           lastSeen: Date.now(),
         };
         setState(updated);
@@ -109,11 +123,7 @@ export default function App() {
           lastAction: null,
           minutesAway,
         });
-        working = addEntry(working, {
-          at: Date.now(),
-          kind: 'return',
-          text,
-        });
+        working = addEntry(working, { at: Date.now(), kind: 'return', text });
         setLetter(text);
         setJournalUnread(true);
       }
@@ -128,13 +138,33 @@ export default function App() {
           minutesAway: 0,
         });
         working = {
-          ...addEntry(working, {
-            at: Date.now(),
-            kind: 'daily',
-            text,
-          }),
+          ...addEntry(working, { at: Date.now(), kind: 'daily', text }),
           lastDailyLetterAt: Date.now(),
         };
+        setJournalUnread(true);
+      }
+
+      // Companion newly available?
+      const newCompanion = newlyAvailableCompanion(working);
+      if (newCompanion) {
+        const text = await fetchMilestoneLetter(
+          {
+            state: working,
+            mood: moodFor(working, today.getHours()),
+            activity: activityFor(today.getHours()),
+            date: today,
+            lastAction: null,
+            minutesAway: 0,
+          },
+          `a ${newCompanion.name} has joined the kingdom — ${newCompanion.blurb}`,
+        );
+        working = addEntry(
+          {
+            ...working,
+            milestones: { ...working.milestones, [`companion-${newCompanion.id}`]: Date.now() },
+          },
+          { at: Date.now(), kind: 'milestone', text, icon: newCompanion.emoji },
+        );
         setJournalUnread(true);
       }
 
@@ -145,12 +175,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // After first-run letter is dismissed, start chatting.
+  // Princess says hello after the welcome letter is dismissed.
   useEffect(() => {
     if (letter !== null) return;
-    const t = setTimeout(() => {
-      requestSass(null);
-    }, 500);
+    const t = setTimeout(() => requestSass(null), 500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [letter]);
@@ -175,33 +203,30 @@ export default function App() {
     [state, mood, activity],
   );
 
-  const handleMilestone = useCallback(
-    async (next: GameState) => {
-      const milestone = checkMilestone(next);
-      if (!milestone) return next;
-      const today = new Date();
-      const text = await fetchMilestoneLetter(
-        {
-          state: next,
-          mood: moodFor(next, today.getHours()),
-          activity: activityFor(today.getHours()),
-          date: today,
-          lastAction: null,
-          minutesAway: 0,
-        },
-        milestone.label,
-      );
-      const withEntry = addEntry(recordMilestone(next, milestone.id, Date.now()), {
-        at: Date.now(),
-        kind: 'milestone',
-        text,
-        icon: milestone.icon,
-      });
-      setJournalUnread(true);
-      return withEntry;
-    },
-    [],
-  );
+  const handleMilestone = useCallback(async (next: GameState) => {
+    const milestone = checkMilestone(next);
+    if (!milestone) return next;
+    const today = new Date();
+    const text = await fetchMilestoneLetter(
+      {
+        state: next,
+        mood: moodFor(next, today.getHours()),
+        activity: activityFor(today.getHours()),
+        date: today,
+        lastAction: null,
+        minutesAway: 0,
+      },
+      milestone.label,
+    );
+    const withEntry = addEntry(recordMilestone(next, milestone.id, Date.now()), {
+      at: Date.now(),
+      kind: 'milestone',
+      text,
+      icon: milestone.icon,
+    });
+    setJournalUnread(true);
+    return withEntry;
+  }, []);
 
   const doAction = useCallback(
     async (kind: ActionKind) => {
@@ -222,12 +247,58 @@ export default function App() {
     [state, requestSass, handleMilestone],
   );
 
+  // Two-way chat.
+  const sendMessage = useCallback(
+    async (text: string) => {
+      const userMsg: ChatMessage = {
+        id: `m-${Date.now()}-u`,
+        at: Date.now(),
+        role: 'user',
+        text,
+      };
+      const withUser = {
+        ...state,
+        chats: [...state.chats, userMsg].slice(-MAX_CHAT_MESSAGES),
+      };
+      setState(withUser);
+      saveState(withUser);
+      setChatBusy(true);
+      haptic('light');
+      const reply = await fetchReply(
+        {
+          state: withUser,
+          mood,
+          activity,
+          date: new Date(),
+          lastAction: null,
+          minutesAway: 0,
+        },
+        text,
+        withUser.chats,
+      );
+      const princessMsg: ChatMessage = {
+        id: `m-${Date.now()}-p`,
+        at: Date.now(),
+        role: 'princess',
+        text: reply,
+      };
+      const next = {
+        ...withUser,
+        chats: [...withUser.chats, princessMsg].slice(-MAX_CHAT_MESSAGES),
+      };
+      setState(next);
+      saveState(next);
+      setChatBusy(false);
+      haptic('light');
+    },
+    [state, mood, activity],
+  );
+
   const enableTilt = useCallback(async () => {
     const ok = await requestTiltPermission();
     setTiltGranted(ok);
   }, []);
 
-  // Stoned filter on the whole scene.
   const stonedFilter =
     tickedState.high > 0.5
       ? `saturate(${1 + tickedState.high * 0.18}) hue-rotate(${tickedState.high * 4}deg) blur(${
@@ -235,7 +306,6 @@ export default function App() {
         }px)`
       : undefined;
 
-  // Tilt parallax: shift princess + foreground horizontally.
   const tiltShift = tiltGranted ? tilt * 14 : 0;
 
   const openJournal = () => {
@@ -247,6 +317,8 @@ export default function App() {
     () => [...tickedState.journal].sort((a, b) => b.at - a.at),
     [tickedState.journal],
   );
+
+  const companions = useMemo(() => unlockedCompanions(tickedState), [tickedState]);
 
   return (
     <div
@@ -260,9 +332,12 @@ export default function App() {
       }}
     >
       <Background date={date} />
+      <Particles phase={phase} />
 
-      {/* Princess — main subject layer */}
+      {/* Princess — main subject layer. data-drop-target lets dragged items
+          from the action tray land on her and trigger the matching action. */}
       <div
+        data-drop-target="princess"
         style={{
           position: 'absolute',
           left: '50%',
@@ -276,7 +351,10 @@ export default function App() {
           drunk={tickedState.drunk}
           high={tickedState.high}
           sleeping={sleeping}
-          onTap={() => doAction('tap')}
+          onTap={() => {
+            haptic('light');
+            setChatOpen(true);
+          }}
         />
       </div>
 
@@ -285,6 +363,8 @@ export default function App() {
         flowers={tickedState.garden}
         now={now}
       />
+
+      <Companions companions={companions} />
 
       <Stats stats={tickedState.stats} />
       <Title flowers={tickedState.flowersAllTime} activity={activityLabel(activity)} />
@@ -295,6 +375,7 @@ export default function App() {
         unread={journalUnread}
         onClick={openJournal}
       />
+      <ChatHint visible={!chatOpen && !letter && !journalOpen} />
 
       {!tiltGranted && needsTiltPermission() && <TiltCTA onTap={enableTilt} />}
 
@@ -306,6 +387,15 @@ export default function App() {
           onClose={() => setJournalOpen(false)}
         />
       )}
+
+      <ChatSheet
+        open={chatOpen}
+        messages={tickedState.chats}
+        pose={visiblePose}
+        busy={chatBusy}
+        onSend={sendMessage}
+        onClose={() => setChatOpen(false)}
+      />
     </div>
   );
 }
@@ -356,8 +446,46 @@ const Title = ({ flowers, activity }: { flowers: number; activity: string }) => 
     }}
   >
     PRINCESS RAJVI · {activity.toUpperCase()}
-    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.4, opacity: 0.85, marginTop: 3 }}>
+    <div
+      style={{
+        fontSize: 9,
+        fontWeight: 600,
+        letterSpacing: 1.4,
+        opacity: 0.85,
+        marginTop: 3,
+      }}
+    >
       🌻 {flowers} sunflowers in the garden
     </div>
   </div>
 );
+
+const ChatHint = ({ visible }: { visible: boolean }) => {
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setShown(false), 6000);
+    return () => clearTimeout(t);
+  }, []);
+  if (!visible || !shown) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 'calc(env(safe-area-inset-bottom, 0) + 110px)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: 'rgba(0,0,0,0.55)',
+        color: '#fff',
+        fontSize: 11,
+        padding: '6px 12px',
+        borderRadius: 12,
+        letterSpacing: 0.8,
+        animation: 'pop 0.4s ease',
+        zIndex: 9,
+        pointerEvents: 'none',
+      }}
+    >
+      tap her to chat · drag items onto her
+    </div>
+  );
+};

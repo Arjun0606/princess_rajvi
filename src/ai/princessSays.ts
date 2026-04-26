@@ -1,4 +1,4 @@
-import { GameState, Mood, ActionKind, Activity } from '../game/state';
+import { GameState, Mood, ActionKind, Activity, ChatMessage } from '../game/state';
 
 type SaysArgs = {
   state: GameState;
@@ -62,7 +62,7 @@ const localFallback = (mood: Mood, lastAction: ActionKind | null): string => {
   return pick(FALLBACKS_BY_MOOD[mood]);
 };
 
-const buildPayload = (a: SaysArgs, kind: 'chat' | 'letter' | 'daily' | 'milestone' | 'firstrun', extra?: Record<string, unknown>) => {
+const buildPayload = (a: SaysArgs, kind: 'chat' | 'letter' | 'daily' | 'milestone' | 'firstrun' | 'reply', extra?: Record<string, unknown>) => {
   const recentFlowerNames = a.state.garden.slice(-5).map((s) => s.name);
   return {
     context: {
@@ -88,6 +88,31 @@ const buildPayload = (a: SaysArgs, kind: 'chat' | 'letter' | 'daily' | 'mileston
       ...(extra ?? {}),
     },
   };
+};
+
+// Princess replies to a free-form message from the user. Recent chat turns
+// are forwarded so she can stay coherent across the back-and-forth.
+export const fetchReply = async (
+  a: SaysArgs,
+  userMessage: string,
+  recentChat: ChatMessage[],
+): Promise<string> => {
+  const transcript = recentChat
+    .slice(-8)
+    .map((m) => ({ role: m.role, text: m.text }));
+  const text = await callApi(
+    buildPayload(a, 'reply', { userMessage, transcript }),
+  );
+  if (text) return text;
+  // Fallback if API is down — keep the rapport going at least.
+  const f = [
+    'mmhm. and?',
+    'fascinating. continue.',
+    'speak louder peasant',
+    'yes yes go on',
+    'you have my full and undivided attention',
+  ];
+  return f[Math.floor(Math.random() * f.length)]!;
 };
 
 const callApi = async (payload: ReturnType<typeof buildPayload>): Promise<string | null> => {

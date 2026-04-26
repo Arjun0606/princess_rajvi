@@ -21,8 +21,10 @@ type Body = {
     jointsAllTime: number;
     daysTogether: number;
     recentFlowerNames: string[];
-    kind: 'chat' | 'letter' | 'daily' | 'milestone' | 'firstrun';
+    kind: 'chat' | 'letter' | 'daily' | 'milestone' | 'firstrun' | 'reply';
     milestoneLabel?: string;
+    userMessage?: string;
+    transcript?: { role: 'user' | 'princess'; text: string }[];
   };
 };
 
@@ -80,6 +82,12 @@ const buildUserPrompt = (b: Body['context']): string => {
       return `${ctx} A milestone was reached: "${b.milestoneLabel}". Write a short royal proclamation (2-4 sentences) celebrating it in your voice. Lowercase, regal but silly.`;
     case 'firstrun':
       return `${ctx} This is the very first time the player has opened the app. Write a short welcome letter (3-5 sentences) introducing your world — the castle, the sunflower meadow, your habits. Warm but bratty. End with an invitation to stay.`;
+    case 'reply': {
+      const transcriptStr = (b.transcript ?? [])
+        .map((m) => `${m.role === 'user' ? 'subject' : 'princess'}: ${m.text}`)
+        .join('\n');
+      return `${ctx}\n\nRecent conversation so far:\n${transcriptStr}\n\nThe player just said to you: "${b.userMessage ?? ''}".\n\nReply in character as Princess Rajvi. Keep it ONE to TWO short sentences (under 30 words total). Lowercase. Reference the conversation, the world, or the player's words specifically. Stay silly and royal — never break character, never sound like an assistant or AI.`;
+    }
   }
 };
 
@@ -109,7 +117,10 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const userPrompt = buildUserPrompt(body.context);
-  const isLong = body.context.kind !== 'chat';
+  const tokenBudget =
+    body.context.kind === 'chat' ? 60 :
+    body.context.kind === 'reply' ? 110 :
+    280;
 
   const r = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -123,7 +134,7 @@ export default async function handler(req: Request): Promise<Response> {
         { role: 'system', content: SYSTEM },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: isLong ? 280 : 60,
+      max_tokens: tokenBudget,
       temperature: 0.95,
     }),
   });
