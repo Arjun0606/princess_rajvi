@@ -403,7 +403,80 @@ const BalconyForeground = ({ palette }: { palette: typeof PALETTES['day'] }) => 
 
     {/* Pink rose vine on the right wall */}
     <RoseVine palette={palette} />
+
+    {/* Castle turrets in the upper right */}
+    <CastleTurrets palette={palette} />
   </>
+);
+
+const CastleTurrets = ({ palette }: { palette: typeof PALETTES['day'] }) => (
+  <svg
+    viewBox="0 0 100 60"
+    preserveAspectRatio="xMaxYMin meet"
+    style={{
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      width: '60%',
+      maxWidth: 320,
+      height: '40%',
+      maxHeight: 280,
+      pointerEvents: 'none',
+      filter: 'drop-shadow(0 4px 0 rgba(0,0,0,0.18))',
+    }}
+  >
+    <g shapeRendering="crispEdges">
+      {/* Tall main tower */}
+      <rect x="80" y="14" width="14" height="32" fill={palette.balustrade} />
+      <rect x="80" y="14" width="14" height="2"  fill={palette.balustradeDark} />
+      {/* Crenellation */}
+      <rect x="80" y="12" width="2" height="4" fill={palette.balustrade} />
+      <rect x="84" y="12" width="2" height="4" fill={palette.balustrade} />
+      <rect x="88" y="12" width="2" height="4" fill={palette.balustrade} />
+      <rect x="92" y="12" width="2" height="4" fill={palette.balustrade} />
+      {/* Conical roof */}
+      <polygon
+        points="79,8 95,8 87,2"
+        fill={palette.balustradeDark}
+      />
+      <polygon
+        points="79,8 87,2 87,8"
+        fill={palette.rose}
+      />
+      {/* Flag pole + flag */}
+      <rect x="86" y="0" width="1" height="3" fill={palette.balustradeShade} />
+      <rect x="87" y="0" width="3" height="2" fill={palette.rose} />
+      {/* Window */}
+      <rect x="84" y="22" width="6" height="8" fill={palette.balustradeShade} />
+      <rect x="85" y="23" width="4" height="6" fill={palette.marbleVein} />
+      <rect x="85" y="23" width="4" height="3" fill={palette.balustradeShade} />
+      <rect x="87" y="22" width="0.4" height="8" fill={palette.balustrade} />
+      <rect x="84" y="26" width="6" height="0.4" fill={palette.balustrade} />
+
+      {/* Smaller second tower behind */}
+      <rect x="68" y="22" width="10" height="24" fill={palette.balustradeDark} />
+      <rect x="68" y="22" width="10" height="2"  fill={palette.balustradeShade} />
+      <rect x="68" y="20" width="2" height="4" fill={palette.balustradeDark} />
+      <rect x="71" y="20" width="2" height="4" fill={palette.balustradeDark} />
+      <rect x="74" y="20" width="2" height="4" fill={palette.balustradeDark} />
+      <rect x="77" y="20" width="2" height="4" fill={palette.balustradeDark} />
+      <polygon
+        points="67,16 79,16 73,11"
+        fill={palette.balustradeShade}
+      />
+      <polygon
+        points="67,16 73,11 73,16"
+        fill={palette.roseDark}
+      />
+      {/* small window */}
+      <rect x="71" y="28" width="4" height="5" fill={palette.balustradeShade} />
+      <rect x="72" y="29" width="2" height="3" fill={palette.marbleVein} />
+
+      {/* Castle wall block connecting */}
+      <rect x="78" y="32" width="22" height="14" fill={palette.balustrade} />
+      <rect x="78" y="32" width="22" height="1.5"  fill={palette.balustradeDark} />
+    </g>
+  </svg>
 );
 
 const Balustrade = ({ palette }: { palette: typeof PALETTES['day'] }) => (

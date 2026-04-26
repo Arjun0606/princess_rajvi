@@ -35,6 +35,8 @@ import { PrincessImage } from './components/PrincessImage';
 import { Foreground } from './components/Foreground';
 import { Companions } from './components/Companions';
 import { Particles } from './components/Particles';
+import { AtmosphericEvents } from './components/AtmosphericEvents';
+import { Settings } from './components/Settings';
 import { Stats } from './components/Stats';
 import { ActionTray } from './components/ActionTray';
 import { SpeechBubble } from './components/SpeechBubble';
@@ -62,6 +64,7 @@ export default function App() {
   const [shakeBurst, setShakeBurst] = useState(0);
   const [tappedFlower, setTappedFlower] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const lastSassAt = useRef(0);
   const initRanRef = useRef(false);
@@ -371,6 +374,21 @@ export default function App() {
     [tickedState.garden, tappedFlower],
   );
 
+  const daysTogether = Math.floor((Date.now() - tickedState.startedAt) / (24 * 60 * 60 * 1000));
+
+  const clearChat = useCallback(() => {
+    const next = { ...state, chats: [] };
+    setState(next);
+    saveState(next);
+    setSettingsOpen(false);
+  }, [state]);
+
+  const resetWorld = useCallback(() => {
+    localStorage.removeItem('princess-rajvi-v2');
+    localStorage.removeItem('princess-rajvi-v1');
+    window.location.reload();
+  }, []);
+
   return (
     <div
       style={{
@@ -383,6 +401,7 @@ export default function App() {
       }}
     >
       <Background date={date} />
+      <AtmosphericEvents phase={phase} />
       <Particles phase={phase} />
 
       {/* Princess — main subject. Sized in vh so she fits every phone. */}
@@ -429,6 +448,7 @@ export default function App() {
         unread={journalUnread}
         onClick={openJournal}
       />
+      <SettingsButton onClick={() => setSettingsOpen(true)} />
       <ChatHint visible={!chatOpen && !letter && !journalOpen} />
 
       {(!tiltGranted || !motionGranted) && needsMotionPermission() && (
@@ -463,6 +483,14 @@ export default function App() {
         onClose={() => setChatOpen(false)}
       />
 
+      <Settings
+        open={settingsOpen}
+        daysTogether={daysTogether}
+        onClose={() => setSettingsOpen(false)}
+        onClearChat={clearChat}
+        onResetWorld={resetWorld}
+      />
+
       <Splash visible={!booted} />
     </div>
   );
@@ -475,6 +503,32 @@ const needsMotionPermission = () => {
   });
   return !!(D.DeviceOrientationEvent?.requestPermission || D.DeviceMotionEvent?.requestPermission);
 };
+
+const SettingsButton = ({ onClick }: { onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    aria-label="settings"
+    style={{
+      position: 'absolute',
+      top: 'calc(env(safe-area-inset-top, 0) + 14px)',
+      right: 80,
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      border: 'none',
+      background: 'rgba(255, 245, 232, 0.6)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+      cursor: 'pointer',
+      fontSize: 18,
+      color: '#3a1a30',
+      zIndex: 11,
+    }}
+  >
+    ⚙︎
+  </button>
+);
 
 const SensorCTA = ({ onTap }: { onTap: () => void }) => (
   <button
