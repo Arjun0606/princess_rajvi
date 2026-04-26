@@ -1,21 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GameState, ActionKind, moodFor } from './game/state';
+import { GameState, ActionKind, moodFor, JournalEntry } from './game/state';
 import { loadState, saveState } from './game/persistence';
 import { tick } from './game/decay';
 import { giveCoke, giveJager, giveWeed, water, tap as tapAction } from './game/actions';
 import { phaseFor } from './game/time';
+import { activityFor, naturalPoseFor, activityLabel } from './game/routine';
 import { useIdle, useNow, useTilt, requestTiltPermission, haptic } from './game/hooks';
-import { fetchSass, fetchLetter } from './ai/princessSays';
+import {
+  fetchSass,
+  fetchLetterOnReturn,
+  fetchDailyLetter,
+  fetchMilestoneLetter,
+  fetchFirstRunLetter,
+} from './ai/princessSays';
+import { addEntry, shouldWriteDailyLetter, checkMilestone, recordMilestone } from './game/journal';
 
-import { Sky } from './components/Sky';
-import { Castle } from './components/Castle';
-import { Princess } from './components/Princess';
-import { Garden } from './components/Garden';
+import { Background } from './components/Background';
+import { PrincessImage } from './components/PrincessImage';
+import { Foreground } from './components/Foreground';
 import { Stats } from './components/Stats';
-import { ActionBar } from './components/ActionBar';
+import { ActionTray } from './components/ActionTray';
 import { SpeechBubble } from './components/SpeechBubble';
 import { Letter } from './components/Letter';
-import { Effects } from './components/Effects';
+import { Journal } from './components/Journal';
+import { JournalButton } from './components/JournalButton';
 
 const LETTER_THRESHOLD_MIN = 90;
 const SASS_COOLDOWN_MS = 2400;
@@ -25,11 +33,12 @@ export default function App() {
   const [speech, setSpeech] = useState<string | null>(null);
   const [speechLoading, setSpeechLoading] = useState(false);
   const [letter, setLetter] = useState<string | null>(null);
-  const [effectTrigger, setEffectTrigger] = useState<{ kind: ActionKind; at: number } | null>(null);
+  const [journalOpen, setJournalOpen] = useState(false);
+  const [journalUnread, setJournalUnread] = useState(false);
   const [tiltGranted, setTiltGranted] = useState(false);
 
   const lastSassAt = useRef(0);
-  const sceneRef = useRef<HTMLDivElement>(null);
+  const initRanRef = useRef(false);
 
   const now = useNow(60_000);
   const date = useMemo(() => new Date(now), [now]);
@@ -38,52 +47,113 @@ export default function App() {
 
   const tickedState = useMemo(() => tick(state, now), [state, now]);
   const phase = phaseFor(date.getHours());
+  const activity = activityFor(date.getHours());
   const mood = moodFor(tickedState, date.getHours());
-  const sleeping = idle && (phase === 'night' || mood === 'sleepy');
+  const sleeping = activity === 'sleeping' || (idle && (phase === 'night'));
+  const naturalPose = naturalPoseFor(activity);
+  const visiblePose = sleeping ? 'sleep' : (tickedState.pose === 'default' ? naturalPose : tickedState.pose);
 
-  // Persist + advance the decayed state into local storage every minute.
+  // Persist + advance state once per minute.
   useEffect(() => {
     setState(tickedState);
     saveState(tickedState);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now]);
 
-  // On first mount: if the player has been gone a while, deliver a letter.
-  useEffect(() => {
-    const initial = loadState();
-    const minutesAway = Math.floor((Date.now() - initial.lastSeen) / 60000);
-    if (minutesAway >= LETTER_THRESHOLD_MIN) {
-      (async () => {
-        const text = await fetchLetter({
-          state: initial,
-          mood: moodFor(initial, new Date().getHours()),
-          date: new Date(),
-          lastAction: null,
-          minutesAway,
-        });
-        setLetter(text);
-      })();
-    }
-    // mark seen
-    const updated = { ...initial, lastSeen: Date.now() };
-    saveState(updated);
-    setState(updated);
-  }, []);
-
-  // Periodic save whenever state changes (for action results).
   useEffect(() => {
     saveState(state);
   }, [state]);
 
-  // Princess says hello on first load if no letter is shown.
+  // First-run + return-from-absence flow. Runs once on mount.
+  useEffect(() => {
+    if (initRanRef.current) return;
+    initRanRef.current = true;
+    (async () => {
+      const initial = loadState();
+      const minutesAway = Math.floor((Date.now() - initial.lastSeen) / 60000);
+      const isFirstRun = initial.journal.length === 0 && initial.startedAt > Date.now() - 60_000;
+      const today = new Date();
+
+      if (isFirstRun) {
+        const text = await fetchFirstRunLetter({
+          state: initial,
+          mood: moodFor(initial, today.getHours()),
+          activity: activityFor(today.getHours()),
+          date: today,
+          lastAction: null,
+          minutesAway: 0,
+        });
+        const updated: GameState = {
+          ...addEntry(initial, {
+            at: Date.now(),
+            kind: 'firstrun',
+            text,
+          }),
+          lastSeen: Date.now(),
+        };
+        setState(updated);
+        saveState(updated);
+        setLetter(text);
+        setJournalUnread(true);
+        return;
+      }
+
+      let working = initial;
+
+      if (minutesAway >= LETTER_THRESHOLD_MIN) {
+        const text = await fetchLetterOnReturn({
+          state: working,
+          mood: moodFor(working, today.getHours()),
+          activity: activityFor(today.getHours()),
+          date: today,
+          lastAction: null,
+          minutesAway,
+        });
+        working = addEntry(working, {
+          at: Date.now(),
+          kind: 'return',
+          text,
+        });
+        setLetter(text);
+        setJournalUnread(true);
+      }
+
+      if (shouldWriteDailyLetter(working, Date.now())) {
+        const text = await fetchDailyLetter({
+          state: working,
+          mood: moodFor(working, today.getHours()),
+          activity: activityFor(today.getHours()),
+          date: today,
+          lastAction: null,
+          minutesAway: 0,
+        });
+        working = {
+          ...addEntry(working, {
+            at: Date.now(),
+            kind: 'daily',
+            text,
+          }),
+          lastDailyLetterAt: Date.now(),
+        };
+        setJournalUnread(true);
+      }
+
+      const updated: GameState = { ...working, lastSeen: Date.now() };
+      setState(updated);
+      saveState(updated);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // After first-run letter is dismissed, start chatting.
   useEffect(() => {
     if (letter !== null) return;
     const t = setTimeout(() => {
       requestSass(null);
-    }, 700);
+    }, 500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [letter]);
 
   const requestSass = useCallback(
     async (lastAction: ActionKind | null) => {
@@ -94,6 +164,7 @@ export default function App() {
       const text = await fetchSass({
         state,
         mood,
+        activity,
         date: new Date(),
         lastAction,
         minutesAway: 0,
@@ -101,11 +172,39 @@ export default function App() {
       setSpeechLoading(false);
       setSpeech(text);
     },
-    [state, mood],
+    [state, mood, activity],
+  );
+
+  const handleMilestone = useCallback(
+    async (next: GameState) => {
+      const milestone = checkMilestone(next);
+      if (!milestone) return next;
+      const today = new Date();
+      const text = await fetchMilestoneLetter(
+        {
+          state: next,
+          mood: moodFor(next, today.getHours()),
+          activity: activityFor(today.getHours()),
+          date: today,
+          lastAction: null,
+          minutesAway: 0,
+        },
+        milestone.label,
+      );
+      const withEntry = addEntry(recordMilestone(next, milestone.id, Date.now()), {
+        at: Date.now(),
+        kind: 'milestone',
+        text,
+        icon: milestone.icon,
+      });
+      setJournalUnread(true);
+      return withEntry;
+    },
+    [],
   );
 
   const doAction = useCallback(
-    (kind: ActionKind) => {
+    async (kind: ActionKind) => {
       const t = Date.now();
       let next = state;
       if (kind === 'coke') next = giveCoke(state, t);
@@ -113,12 +212,14 @@ export default function App() {
       else if (kind === 'weed') next = giveWeed(state, t);
       else if (kind === 'water') next = water(state, t);
       else if (kind === 'tap') next = tapAction(state, t);
+
+      next = await handleMilestone(next);
+
       setState(next);
-      setEffectTrigger({ kind, at: t });
       haptic(kind === 'jager' ? 'medium' : 'light');
       requestSass(kind);
     },
-    [state, requestSass],
+    [state, requestSass, handleMilestone],
   );
 
   const enableTilt = useCallback(async () => {
@@ -126,73 +227,85 @@ export default function App() {
     setTiltGranted(ok);
   }, []);
 
-  // Stoned visual filter on the whole scene.
+  // Stoned filter on the whole scene.
   const stonedFilter =
     tickedState.high > 0.5
-      ? `saturate(${1 + tickedState.high * 0.3}) hue-rotate(${tickedState.high * 6}deg) blur(${
-          Math.min(tickedState.high * 0.6, 1.4)
+      ? `saturate(${1 + tickedState.high * 0.18}) hue-rotate(${tickedState.high * 4}deg) blur(${
+          Math.min(tickedState.high * 0.4, 1.0)
         }px)`
       : undefined;
 
-  // Tilt parallax: shift princess + castle horizontally based on phone angle.
+  // Tilt parallax: shift princess + foreground horizontally.
   const tiltShift = tiltGranted ? tilt * 14 : 0;
+
+  const openJournal = () => {
+    setJournalOpen(true);
+    setJournalUnread(false);
+  };
+
+  const sortedJournal: JournalEntry[] = useMemo(
+    () => [...tickedState.journal].sort((a, b) => b.at - a.at),
+    [tickedState.journal],
+  );
 
   return (
     <div
-      ref={sceneRef}
       style={{
         position: 'fixed',
         inset: 0,
         overflow: 'hidden',
         filter: stonedFilter,
         transition: 'filter 0.6s ease',
+        background: '#1a1340',
       }}
     >
-      <Sky date={date} />
+      <Background date={date} />
 
-      {/* Castle layer */}
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          bottom: 110,
-          transform: `translateX(calc(-50% + ${tiltShift * 0.4}px))`,
-          opacity: 0.95,
-        }}
-      >
-        <Castle size={6} />
-      </div>
-
-      {/* Princess layer */}
+      {/* Princess — main subject layer */}
       <div
         style={{
           position: 'absolute',
           left: '50%',
           bottom: 130,
           transform: `translateX(calc(-50% + ${tiltShift}px))`,
+          zIndex: 3,
         }}
       >
-        <Princess
-          mood={mood}
+        <PrincessImage
+          pose={visiblePose}
           drunk={tickedState.drunk}
           high={tickedState.high}
           sleeping={sleeping}
-          size={5}
           onTap={() => doAction('tap')}
         />
       </div>
 
-      <Garden flowers={tickedState.garden} now={now} />
+      <Foreground
+        itemsOnTable={tickedState.itemsOnTable}
+        flowers={tickedState.garden}
+        now={now}
+      />
 
       <Stats stats={tickedState.stats} />
-      <Title flowers={tickedState.flowersAllTime} />
+      <Title flowers={tickedState.flowersAllTime} activity={activityLabel(activity)} />
       <SpeechBubble text={speech} loading={speechLoading} />
-      <ActionBar onAction={doAction} />
-      <Effects trigger={effectTrigger} />
+      <ActionTray onAction={doAction} />
+      <JournalButton
+        count={tickedState.journal.length}
+        unread={journalUnread}
+        onClick={openJournal}
+      />
 
       {!tiltGranted && needsTiltPermission() && <TiltCTA onTap={enableTilt} />}
 
       {letter !== null && <Letter text={letter} onClose={() => setLetter(null)} />}
+      {journalOpen && (
+        <Journal
+          entries={sortedJournal}
+          startedAt={tickedState.startedAt}
+          onClose={() => setJournalOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -209,7 +322,7 @@ const TiltCTA = ({ onTap }: { onTap: () => void }) => (
     onClick={onTap}
     style={{
       position: 'absolute',
-      top: 'calc(env(safe-area-inset-top, 0) + 88px)',
+      top: 'calc(env(safe-area-inset-top, 0) + 80px)',
       right: 16,
       background: 'rgba(255,255,255,0.85)',
       border: 'none',
@@ -225,26 +338,26 @@ const TiltCTA = ({ onTap }: { onTap: () => void }) => (
   </button>
 );
 
-const Title = ({ flowers }: { flowers: number }) => (
+const Title = ({ flowers, activity }: { flowers: number; activity: string }) => (
   <div
     style={{
       position: 'absolute',
-      top: 'calc(env(safe-area-inset-top, 0) + 56px)',
+      top: 'calc(env(safe-area-inset-top, 0) + 88px)',
       left: 0,
       right: 0,
       textAlign: 'center',
       color: '#fff',
-      fontSize: 13,
-      fontWeight: 800,
-      letterSpacing: 2,
-      textShadow: '0 2px 6px rgba(0,0,0,0.4)',
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: 2.5,
+      textShadow: '0 2px 8px rgba(0,0,0,0.5)',
       zIndex: 5,
       pointerEvents: 'none',
     }}
   >
-    PRINCESS RAJVI
-    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.2, opacity: 0.85 }}>
-      🌻 {flowers} sunflowers · long may she reign
+    PRINCESS RAJVI · {activity.toUpperCase()}
+    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 1.4, opacity: 0.85, marginTop: 3 }}>
+      🌻 {flowers} sunflowers in the garden
     </div>
   </div>
 );

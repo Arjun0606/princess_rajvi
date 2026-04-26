@@ -19,7 +19,7 @@ export const SpeechBubble = ({ text, loading }: Props) => {
       setTyped(text.slice(0, i));
       if (i >= text.length) clearInterval(id);
     }, 22);
-    const hide = setTimeout(() => setShown(null), 6500);
+    const hide = setTimeout(() => setShown(null), 7500);
     return () => {
       clearInterval(id);
       clearTimeout(hide);
@@ -42,20 +42,21 @@ const Bubble = ({ children }: { children: React.ReactNode }) => (
     style={{
       position: 'absolute',
       left: '50%',
-      top: 'calc(env(safe-area-inset-top, 0) + 88px)',
+      bottom: 'calc(env(safe-area-inset-bottom, 0) + 240px)',
       transform: 'translateX(-50%)',
-      maxWidth: 'min(86vw, 320px)',
-      background: 'rgba(255, 255, 255, 0.96)',
-      color: '#2a1340',
-      padding: '12px 16px',
-      borderRadius: 18,
-      fontSize: 15,
+      maxWidth: 'min(82vw, 320px)',
+      background: 'rgba(255, 248, 240, 0.96)',
+      color: '#3a1a30',
+      padding: '14px 18px',
+      borderRadius: 22,
+      fontSize: 15.5,
       fontWeight: 600,
-      lineHeight: 1.35,
+      lineHeight: 1.4,
       textAlign: 'center',
-      boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-      animation: 'pop 0.3s ease',
+      boxShadow: '0 10px 28px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.6)',
+      animation: 'pop 0.3s cubic-bezier(.2,.7,.2,1)',
       zIndex: 12,
+      fontFamily: 'ui-rounded, system-ui, -apple-system, sans-serif',
     }}
   >
     {children}
@@ -63,13 +64,13 @@ const Bubble = ({ children }: { children: React.ReactNode }) => (
       style={{
         position: 'absolute',
         left: '50%',
-        bottom: -8,
+        bottom: -10,
         transform: 'translateX(-50%)',
         width: 0,
         height: 0,
-        borderLeft: '8px solid transparent',
-        borderRight: '8px solid transparent',
-        borderTop: '10px solid rgba(255,255,255,0.96)',
+        borderLeft: '10px solid transparent',
+        borderRight: '10px solid transparent',
+        borderTop: '12px solid rgba(255, 248, 240, 0.96)',
       }}
     />
   </div>
@@ -81,8 +82,8 @@ const Dots = () => (
       <span
         key={i}
         style={{
-          width: 6,
-          height: 6,
+          width: 7,
+          height: 7,
           borderRadius: '50%',
           background: '#ff5d8f',
           animation: `float 1s ease-in-out infinite`,

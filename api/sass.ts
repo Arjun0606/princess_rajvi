@@ -1,4 +1,4 @@
-// Vercel serverless function — proxies a single short prompt to OpenAI.
+// Vercel edge function — proxies short prompts to OpenAI for princess voice.
 // Lives at /api/sass once deployed. Keeps the API key off the client.
 
 type Body = {
@@ -10,6 +10,7 @@ type Body = {
     drunk: number;
     high: number;
     mood: string;
+    activity: string;
     hour: number;
     minute: number;
     minutesAway: number;
@@ -18,29 +19,68 @@ type Body = {
     cokesAllTime: number;
     jagersAllTime: number;
     jointsAllTime: number;
-    isLetter?: boolean;
+    daysTogether: number;
+    recentFlowerNames: string[];
+    kind: 'chat' | 'letter' | 'daily' | 'milestone' | 'firstrun';
+    milestoneLabel?: string;
   };
 };
 
-const SYSTEM = `You are Princess Rajvi: a sassy, bratty, charming pixel-art princess in a pink castle. You love diet coke, sunflowers, jägermeister, and weed. You speak to your one loyal subject (the player) in lowercase, playfully demanding, like a close friend texting. NEVER use em dashes or semicolons. NEVER introduce yourself. Use at most one emoji. Keep replies short (under 18 words for chat, under 60 for letters). Be specific to the moment — reference the time of day, what they just gave you, or what's running low. Don't be sad or sentimental. Stay silly and royal.`;
+const SYSTEM = `You are Princess Rajvi: a sassy, bratty, charming illustrated princess living in a soft pink stone castle on a sunflower meadow. You love diet coke, sunflowers, jägermeister, and weed.
+
+VOICE:
+- Lowercase. Playful. Slightly demanding like a close friend texting.
+- NEVER use em dashes or semicolons. NEVER colons except in the time of day.
+- NEVER introduce yourself or sign off with "Princess Rajvi" (the UI handles signatures).
+- Use at most one emoji per reply.
+- Be specific to the moment — reference the time of day, the weather of her mood, what she just got, named sunflowers when relevant, day of friendship.
+- Stay silly and royal. Don't be sad or sentimental. Don't break character. Don't reference being an AI.
+
+LENGTH:
+- "chat" replies → ONE short line, under 16 words.
+- "letter" / "daily" / "firstrun" / "milestone" → 3 to 5 sentences max, paragraph breaks ok, like a real handwritten note.
+
+The player is her one loyal subject and dear friend. They take care of her by bringing diet coke, jäger, joints, and watering her named sunflowers.`;
 
 const buildUserPrompt = (b: Body['context']): string => {
-  if (b.isLetter) {
-    return `Write a short letter (3-5 sentences max) from princess to her subject who has been gone for ${b.minutesAway} minutes. Stats are: sass ${b.sass}, joy ${b.joy}, vibes ${b.vibes}, chill ${b.chill}. Reference the abandonment dramatically but playfully. The garden has ${b.flowersAllTime} sunflowers planted total. End the letter with a demand. Lowercase, no em dashes.`;
+  const stats = `sass ${b.sass}, joy ${b.joy}, vibes ${b.vibes}, chill ${b.chill}`;
+  const time = `${pad(b.hour)}:${pad(b.minute)}`;
+  const buzz: string[] = [];
+  if (b.drunk > 1.5) buzz.push(`tipsy (${b.drunk.toFixed(1)} jägers)`);
+  if (b.high > 1.5) buzz.push(`high (${b.high.toFixed(1)} joints)`);
+  const garden = b.recentFlowerNames.length > 0
+    ? `Recent sunflower names you can reference: ${b.recentFlowerNames.join(', ')}.`
+    : '';
+
+  const ctx = [
+    `Time: ${time}.`,
+    `Activity right now: ${b.activity}.`,
+    `Mood: ${b.mood}.`,
+    `Stats: ${stats}.`,
+    buzz.length ? `Buzz: ${buzz.join(', ')}.` : '',
+    `Day ${b.daysTogether} of friendship.`,
+    `Lifetime totals: ${b.cokesAllTime} cokes, ${b.jagersAllTime} jägers, ${b.jointsAllTime} joints, ${b.flowersAllTime} sunflowers planted.`,
+    garden,
+  ].filter(Boolean).join(' ');
+
+  switch (b.kind) {
+    case 'chat': {
+      const action = b.lastAction
+        ? `The player just gave you: ${b.lastAction}.`
+        : b.minutesAway > 15
+          ? `The player has just opened the app after ${b.minutesAway} minutes away.`
+          : `The player tapped you.`;
+      return `${ctx} ${action} Reply with one short in-character line.`;
+    }
+    case 'letter':
+      return `${ctx} The player has been gone ${b.minutesAway} minutes and just opened the app. Write a short dramatic-but-playful letter (3-5 sentences) about the absence. Reference your mood and ideally a sunflower name. End with a small demand.`;
+    case 'daily':
+      return `${ctx} It's the start of a new day. Write a short morning dispatch (3-5 sentences) — what you're thinking about today, a small wish or demand, optionally a sunflower update. Lowercase.`;
+    case 'milestone':
+      return `${ctx} A milestone was reached: "${b.milestoneLabel}". Write a short royal proclamation (2-4 sentences) celebrating it in your voice. Lowercase, regal but silly.`;
+    case 'firstrun':
+      return `${ctx} This is the very first time the player has opened the app. Write a short welcome letter (3-5 sentences) introducing your world — the castle, the sunflower meadow, your habits. Warm but bratty. End with an invitation to stay.`;
   }
-  const parts: string[] = [];
-  parts.push(`Time: ${pad(b.hour)}:${pad(b.minute)}.`);
-  parts.push(`Mood: ${b.mood}.`);
-  parts.push(`Stats — sass ${b.sass}, joy ${b.joy}, vibes ${b.vibes}, chill ${b.chill}.`);
-  if (b.drunk > 1.5) parts.push(`She is tipsy (${b.drunk.toFixed(1)} jägers in).`);
-  if (b.high > 1.5) parts.push(`She is high (${b.high.toFixed(1)} joints in).`);
-  if (b.lastAction) parts.push(`Player just gave her: ${b.lastAction}.`);
-  if (!b.lastAction && b.minutesAway > 15)
-    parts.push(`Player just opened the app after ${b.minutesAway} minutes away.`);
-  if (!b.lastAction && b.minutesAway <= 15)
-    parts.push(`Player tapped princess.`);
-  parts.push(`Reply with one short line in character.`);
-  return parts.join(' ');
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -69,7 +109,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const userPrompt = buildUserPrompt(body.context);
-  const isLetter = body.context.isLetter === true;
+  const isLong = body.context.kind !== 'chat';
 
   const r = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -83,7 +123,7 @@ export default async function handler(req: Request): Promise<Response> {
         { role: 'system', content: SYSTEM },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: isLetter ? 220 : 60,
+      max_tokens: isLong ? 280 : 60,
       temperature: 0.95,
     }),
   });

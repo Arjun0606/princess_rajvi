@@ -9,10 +9,48 @@ export type RecentAction = {
 
 export type Sunflower = {
   id: string;
+  name: string;
   plantedAt: number;
-  x: number; // 0..1 across the garden width
   variant: 0 | 1 | 2;
-  giant?: boolean;
+};
+
+// What princess is currently doing.
+export type Activity =
+  | 'sleeping'
+  | 'waking'
+  | 'morning'
+  | 'noon'
+  | 'afternoon'
+  | 'garden'
+  | 'cocktail'
+  | 'dinner'
+  | 'stoned';
+
+// Visual pose. Maps to one of the princess-*.png assets.
+export type Pose =
+  | 'default'
+  | 'coke'
+  | 'jager'
+  | 'joint'
+  | 'sunflower'
+  | 'sleep';
+
+// A letter or note in the journal — accumulates over time.
+export type JournalEntry = {
+  id: string;
+  at: number;
+  kind: 'daily' | 'return' | 'action' | 'milestone' | 'firstrun';
+  text: string;
+  // Optional emoji icon shown next to the entry header.
+  icon?: string;
+};
+
+export type ItemOnTable = {
+  id: string;
+  kind: 'coke' | 'jager' | 'joint' | 'sunflower';
+  appearedAt: number;
+  // Position on the table 0..1 horizontal (visual placement).
+  spot: number;
 };
 
 export type GameState = {
@@ -26,24 +64,41 @@ export type GameState = {
   startedAt: number;
   lastSeen: number;
   lastTick: number;
-  drunk: number; // 0..3+ visible wobble
-  high: number;  // 0..3+ stoned filter
+  drunk: number;
+  high: number;
   cokesAllTime: number;
   jagersAllTime: number;
   jointsAllTime: number;
   flowersAllTime: number;
   recent: RecentAction[];
+
+  // New for the world model:
+  pose: Pose;
+  poseUntil: number;
+  itemsOnTable: ItemOnTable[];
+  journal: JournalEntry[];
+  lastDailyLetterAt: number;
+  milestones: Record<string, number>; // milestone id → timestamp first hit
 };
 
 export const MAX_STAT = 100;
 export const MIN_STAT = 0;
 export const MAX_BUZZ = 4;
 
+const SUNFLOWER_NAMES = [
+  'doris', 'mathilda', 'tiny tony', 'percy', 'agatha',
+  'beatrix', 'lulu', 'opal', 'maeve', 'celeste',
+  'esme', 'fenton', 'gwen', 'ivy', 'juno',
+];
+
+let nameIdx = 0;
+export const nextSunflowerName = () => SUNFLOWER_NAMES[nameIdx++ % SUNFLOWER_NAMES.length]!;
+
 export const initialState = (now: number): GameState => ({
   stats: { sass: 70, joy: 70, vibes: 50, chill: 50 },
   garden: [
-    { id: 'seed-1', plantedAt: now - 1000 * 60 * 60 * 12, x: 0.18, variant: 0 },
-    { id: 'seed-2', plantedAt: now - 1000 * 60 * 60 * 24, x: 0.78, variant: 1 },
+    { id: 'seed-1', name: 'doris',    plantedAt: now - 1000 * 60 * 60 * 12, variant: 0 },
+    { id: 'seed-2', name: 'mathilda', plantedAt: now - 1000 * 60 * 60 * 24, variant: 1 },
   ],
   startedAt: now,
   lastSeen: now,
@@ -55,6 +110,12 @@ export const initialState = (now: number): GameState => ({
   jointsAllTime: 0,
   flowersAllTime: 2,
   recent: [],
+  pose: 'default',
+  poseUntil: 0,
+  itemsOnTable: [],
+  journal: [],
+  lastDailyLetterAt: 0,
+  milestones: {},
 });
 
 export const clamp = (n: number, lo = MIN_STAT, hi = MAX_STAT) =>

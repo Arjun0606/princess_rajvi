@@ -1,8 +1,20 @@
-import { GameState, RecentAction, Sunflower, clamp } from './state';
+import { GameState, RecentAction, Sunflower, ItemOnTable, clamp, nextSunflowerName } from './state';
+
+const POSE_HOLD_MS = 5_000;
 
 const remember = (state: GameState, kind: RecentAction['kind'], now: number): RecentAction[] => {
   const next = [...state.recent, { kind, at: now }];
   return next.slice(-8);
+};
+
+const placeOnTable = (state: GameState, kind: ItemOnTable['kind'], now: number): ItemOnTable[] => {
+  const item: ItemOnTable = {
+    id: `tbl-${now}-${Math.random().toString(36).slice(2, 6)}`,
+    kind,
+    appearedAt: now,
+    spot: Math.random() * 0.8 + 0.1,
+  };
+  return [...state.itemsOnTable.slice(-3), item];
 };
 
 export const giveCoke = (state: GameState, now: number): GameState => ({
@@ -13,6 +25,9 @@ export const giveCoke = (state: GameState, now: number): GameState => ({
     chill: clamp(state.stats.chill - 4),
   },
   cokesAllTime: state.cokesAllTime + 1,
+  pose: 'coke',
+  poseUntil: now + POSE_HOLD_MS,
+  itemsOnTable: placeOnTable(state, 'coke', now),
   recent: remember(state, 'coke', now),
 });
 
@@ -25,6 +40,9 @@ export const giveJager = (state: GameState, now: number): GameState => ({
   },
   drunk: Math.min(state.drunk + 1, 4),
   jagersAllTime: state.jagersAllTime + 1,
+  pose: 'jager',
+  poseUntil: now + POSE_HOLD_MS,
+  itemsOnTable: placeOnTable(state, 'jager', now),
   recent: remember(state, 'jager', now),
 });
 
@@ -37,16 +55,11 @@ export const giveWeed = (state: GameState, now: number): GameState => ({
   },
   high: Math.min(state.high + 1, 4),
   jointsAllTime: state.jointsAllTime + 1,
+  pose: 'joint',
+  poseUntil: now + POSE_HOLD_MS * 2,
+  itemsOnTable: placeOnTable(state, 'joint', now),
   recent: remember(state, 'weed', now),
 });
-
-const pickSpot = (garden: Sunflower[]): number => {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const x = 0.05 + Math.random() * 0.9;
-    if (garden.every((s) => Math.abs(s.x - x) > 0.07)) return x;
-  }
-  return 0.05 + Math.random() * 0.9;
-};
 
 export const water = (state: GameState, now: number): GameState => {
   const ungrown = state.garden.filter(
@@ -54,17 +67,19 @@ export const water = (state: GameState, now: number): GameState => {
   );
   const newFlower: Sunflower = {
     id: `seed-${now}-${Math.random().toString(36).slice(2, 6)}`,
+    name: nextSunflowerName(),
     plantedAt: now,
-    x: pickSpot(state.garden),
     variant: Math.floor(Math.random() * 3) as 0 | 1 | 2,
   };
-  // Cap garden at 14 flowers — older ones rotate out so it never gets overwhelming.
   const trimmed = state.garden.length >= 14 ? state.garden.slice(1) : state.garden;
+  const planted = ungrown.length === 0;
   return {
     ...state,
     stats: { ...state.stats, joy: clamp(state.stats.joy + 18) },
-    garden: ungrown.length === 0 ? [...trimmed, newFlower] : trimmed,
-    flowersAllTime: state.flowersAllTime + (ungrown.length === 0 ? 1 : 0),
+    garden: planted ? [...trimmed, newFlower] : trimmed,
+    flowersAllTime: state.flowersAllTime + (planted ? 1 : 0),
+    pose: 'sunflower',
+    poseUntil: now + POSE_HOLD_MS,
     recent: remember(state, 'water', now),
   };
 };
