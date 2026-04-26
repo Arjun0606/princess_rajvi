@@ -1,21 +1,24 @@
 import { ActionKind } from '../game/state';
 import { Draggable } from './Draggable';
+import { PixelItem } from './PixelItem';
 
 type Props = {
   onAction: (kind: ActionKind) => void;
 };
 
+type PixelKind = 'coke' | 'jager' | 'joint' | 'sunflower';
+
 const BUTTONS: {
   kind: ActionKind;
+  pixelKind: PixelKind;
   label: string;
-  emojiFallback: string;
   imgSrc: string;
   bg: string;
 }[] = [
-  { kind: 'coke',  label: 'diet coke', emojiFallback: '🥤', imgSrc: '/art/item-coke.png',  bg: 'linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,200,210,0.55))' },
-  { kind: 'water', label: 'sunflower', emojiFallback: '🌻', imgSrc: '/art/item-sunflower.png', bg: 'linear-gradient(180deg, rgba(255,235,180,0.55), rgba(255,200,120,0.55))' },
-  { kind: 'jager', label: 'jäger',     emojiFallback: '🍷', imgSrc: '/art/item-jager.png', bg: 'linear-gradient(180deg, rgba(180,210,170,0.55), rgba(120,170,110,0.55))' },
-  { kind: 'weed',  label: 'joint',     emojiFallback: '🌿', imgSrc: '/art/item-joint.png',  bg: 'linear-gradient(180deg, rgba(220,240,200,0.55), rgba(170,210,150,0.55))' },
+  { kind: 'coke',  pixelKind: 'coke',      label: 'diet coke', imgSrc: '/art/item-coke.png',      bg: 'linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,200,210,0.55))' },
+  { kind: 'water', pixelKind: 'sunflower', label: 'sunflower', imgSrc: '/art/item-sunflower.png', bg: 'linear-gradient(180deg, rgba(255,235,180,0.55), rgba(255,200,120,0.55))' },
+  { kind: 'jager', pixelKind: 'jager',     label: 'jäger',     imgSrc: '/art/item-jager.png',     bg: 'linear-gradient(180deg, rgba(180,210,170,0.55), rgba(120,170,110,0.55))' },
+  { kind: 'weed',  pixelKind: 'joint',     label: 'joint',     imgSrc: '/art/item-joint.png',     bg: 'linear-gradient(180deg, rgba(220,240,200,0.55), rgba(170,210,150,0.55))' },
 ];
 
 export const ActionTray = ({ onAction }: Props) => {
@@ -49,7 +52,7 @@ export const ActionTray = ({ onAction }: Props) => {
         >
           <ButtonBody
             label={b.label}
-            emojiFallback={b.emojiFallback}
+            pixelKind={b.pixelKind}
             imgSrc={b.imgSrc}
             bg={b.bg}
           />
@@ -61,12 +64,12 @@ export const ActionTray = ({ onAction }: Props) => {
 
 const ButtonBody = ({
   label,
-  emojiFallback,
+  pixelKind,
   imgSrc,
   bg,
 }: {
   label: string;
-  emojiFallback: string;
+  pixelKind: PixelKind;
   imgSrc: string;
   bg: string;
 }) => (
@@ -92,45 +95,39 @@ const ButtonBody = ({
       pointerEvents: 'none',
     }}
   >
-    <ItemIcon src={imgSrc} fallback={emojiFallback} />
+    <ItemIcon src={imgSrc} kind={pixelKind} />
     <span>{label}</span>
   </div>
 );
 
-const ItemIcon = ({ src, fallback }: { src: string; fallback: string }) => (
-  <span
-    style={{
-      position: 'relative',
-      width: 38,
-      height: 50,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}
-  >
-    <img
-      src={src}
-      alt=""
-      onError={(e) => {
-        (e.currentTarget as HTMLImageElement).style.opacity = '0';
-      }}
-      style={{
-        maxWidth: '100%',
-        maxHeight: '100%',
-        objectFit: 'contain',
-        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
-      }}
-    />
+const ItemIcon = ({ src, kind }: { src: string; kind: PixelKind }) => {
+  // PixelItem renders by default; PNG layers on top if available.
+  return (
     <span
       style={{
-        position: 'absolute',
-        fontSize: 30,
-        lineHeight: 1,
-        filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.25))',
-        zIndex: -1,
+        position: 'relative',
+        width: 40,
+        height: 52,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      {fallback}
+      <PixelItem kind={kind} size={3} />
+      <img
+        src={src}
+        alt=""
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.opacity = '0';
+        }}
+        style={{
+          position: 'absolute',
+          maxWidth: '100%',
+          maxHeight: '100%',
+          objectFit: 'contain',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+        }}
+      />
     </span>
-  </span>
-);
+  );
+};

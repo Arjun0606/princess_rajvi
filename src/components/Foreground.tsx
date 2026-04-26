@@ -1,4 +1,5 @@
 import { ItemOnTable, Sunflower as SunflowerData } from '../game/state';
+import { PixelItem } from './PixelItem';
 
 type Props = {
   itemsOnTable: ItemOnTable[];
@@ -11,13 +12,6 @@ const ITEM_FILE: Record<ItemOnTable['kind'], string> = {
   jager: '/art/item-jager.png',
   joint: '/art/item-joint.png',
   sunflower: '/art/item-sunflower.png',
-};
-
-const ITEM_LABEL: Record<ItemOnTable['kind'], string> = {
-  coke: '🥤',
-  jager: '🍷',
-  joint: '🌿',
-  sunflower: '🌻',
 };
 
 export const Foreground = ({ itemsOnTable, flowers, now }: Props) => {
@@ -97,38 +91,26 @@ const ItemOnSurface = ({
         width: 36,
         height: 56,
         animation: 'pop 0.4s cubic-bezier(.2,.7,.2,1)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
       }}
     >
+      <PixelItem kind={item.kind} size={3} />
       <img
         src={ITEM_FILE[item.kind]}
         alt=""
         onError={(e) => {
-          (e.currentTarget as HTMLImageElement).style.display = 'none';
+          (e.currentTarget as HTMLImageElement).style.opacity = '0';
         }}
         style={{
+          position: 'absolute',
           width: '100%',
           height: '100%',
           objectFit: 'contain',
           filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))',
         }}
       />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 28,
-          opacity: 0.7,
-          pointerEvents: 'none',
-        }}
-      >
-        {/* fallback emoji visible if image failed */}
-        <span style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>
-          {ITEM_LABEL[item.kind]}
-        </span>
-      </div>
     </div>
   );
 };
