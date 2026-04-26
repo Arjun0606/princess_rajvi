@@ -1,14 +1,15 @@
 import { ReactNode, useRef, useState, PointerEvent } from 'react';
 
 type Props = {
-  // Fired when this item is released over an element with data-drop-target=name.
   onDropOn: (target: string) => void;
-  // Fired on a quick tap (no significant drag).
   onTap?: () => void;
-  // Fired when drag starts (so the parent can hide other items / dim background).
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  // The static button that lives in the layout (rendered at all times).
   children: ReactNode;
+  // Optional smaller artefact rendered at the finger while dragging.
+  // Falls back to `children` so existing call sites keep working.
+  dragGhost?: ReactNode;
   ariaLabel?: string;
 };
 
@@ -19,7 +20,7 @@ const TAP_THRESHOLD_MS = 220;
 // so we don't have to ship two code paths. While dragging, the child renders
 // in a fixed-position layer that follows the finger; on release we hit-test
 // against any element with a matching data-drop-target attribute.
-export const Draggable = ({ onDropOn, onTap, onDragStart, onDragEnd, children, ariaLabel }: Props) => {
+export const Draggable = ({ onDropOn, onTap, onDragStart, onDragEnd, children, dragGhost, ariaLabel }: Props) => {
   const startRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -110,13 +111,13 @@ export const Draggable = ({ onDropOn, onTap, onDragStart, onDragEnd, children, a
             position: 'fixed',
             left: pos.x,
             top: pos.y,
-            transform: 'translate(-50%, -55%) scale(1.4)',
+            transform: 'translate(-50%, -55%) scale(1.6)',
             pointerEvents: 'none',
             zIndex: 100,
-            filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.45))',
+            filter: 'drop-shadow(0 14px 24px rgba(0,0,0,0.5))',
           }}
         >
-          {children}
+          {dragGhost ?? children}
         </div>
       )}
     </>

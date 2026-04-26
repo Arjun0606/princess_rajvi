@@ -23,6 +23,8 @@ const POSE_TO_FILE: Record<Pose, string> = {
 export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props) => {
   const [draft, setDraft] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const dragStartY = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const keyboardOffset = useKeyboardOffset();
@@ -76,16 +78,45 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
           borderBottomWidth: 0,
           boxShadow: '0 -16px 40px rgba(0,0,0,0.45)',
           transform: mounted
-            ? `translateY(-${keyboardOffset}px)`
+            ? `translateY(${dragOffset - keyboardOffset}px)`
             : 'translateY(100%)',
-          transition: 'transform 0.35s cubic-bezier(.2,.7,.2,1), max-height 0.25s ease',
+          transition: dragStartY.current === null
+            ? 'transform 0.35s cubic-bezier(.2,.7,.2,1), max-height 0.25s ease'
+            : 'none',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
           imageRendering: 'pixelated' as const,
         }}
       >
-        <Header pose={pose} onClose={onClose} />
+        <div
+          onPointerDown={(e) => {
+            dragStartY.current = e.clientY;
+            (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            if (dragStartY.current === null) return;
+            const dy = e.clientY - dragStartY.current;
+            if (dy > 0) setDragOffset(dy);
+          }}
+          onPointerUp={() => {
+            if (dragStartY.current === null) return;
+            const finalOffset = dragOffset;
+            dragStartY.current = null;
+            if (finalOffset > 90) {
+              onClose();
+            } else {
+              setDragOffset(0);
+            }
+          }}
+          onPointerCancel={() => {
+            dragStartY.current = null;
+            setDragOffset(0);
+          }}
+          style={{ touchAction: 'none' }}
+        >
+          <Header pose={pose} onClose={onClose} />
+        </div>
 
         <div
           ref={scrollRef}

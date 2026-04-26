@@ -49,6 +49,11 @@ export const ActionTray = ({ onAction }: Props) => {
           ariaLabel={b.label}
           onTap={() => onAction(b.kind)}
           onDropOn={handleDropOn(b.kind)}
+          dragGhost={
+            <div style={{ width: 60, height: 78 }}>
+              <PixelItem kind={b.pixelKind} size={5} />
+            </div>
+          }
         >
           <ButtonBody
             label={b.label}
