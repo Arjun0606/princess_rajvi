@@ -19,6 +19,7 @@ import {
   fetchMilestoneLetter,
   fetchFirstRunLetter,
   fetchReply,
+  fetchCravingStart,
 } from './ai/princessSays';
 import {
   addEntry,
@@ -50,13 +51,12 @@ import {
   shouldStartCraving,
   startCraving,
   tryFulfillCraving,
-  CRAVING_LABEL,
 } from './game/cravings';
 
 const LETTER_THRESHOLD_MIN = 90;
-const SASS_COOLDOWN_MS = 2400;
+const SASS_COOLDOWN_MS = 1200;
 const MAX_CHAT_MESSAGES = 80;
-const STATION_COOLDOWN_MS = 1000 * 60 * 4;
+const STATION_COOLDOWN_MS = 1000 * 30; // 30s between station collections
 const PROXIMITY = 0.12; // when princess is within this distance of a station, pickup fires
 
 export default function App() {
@@ -126,24 +126,35 @@ export default function App() {
     return () => clearInterval(t);
   }, [sleeping]);
 
-  // Cravings game: every ~30s, check whether she should start craving
-  // something. When a new craving starts, she announces it; the player
-  // has to walk her to the matching station.
+  // Cravings game: every 15s, check whether she should start craving
+  // something. When a new craving starts, ask the LLM for a one-line
+  // demand in character so it varies every time.
   useEffect(() => {
     if (sleeping) return;
-    const t = setInterval(() => {
+    const t = setInterval(async () => {
       if (shouldStartCraving(state, Date.now())) {
         const next = startCraving(state, Date.now());
         setState(next);
         const kind = next.craving.kind;
         if (kind && kind !== 'tap') {
-          setSpeech(`hmm. i could really go for ${CRAVING_LABEL[kind]}.`);
           sfx('pickup');
+          const text = await fetchCravingStart(
+            {
+              state: next,
+              mood,
+              activity,
+              date: new Date(),
+              lastAction: null,
+              minutesAway: 0,
+            },
+            kind,
+          );
+          setSpeech(text);
         }
       }
-    }, 30_000);
+    }, 15_000);
     return () => clearInterval(t);
-  }, [state, sleeping]);
+  }, [state, sleeping, mood, activity]);
 
   // First-run + return letter + daily letter + companions.
   useEffect(() => {
@@ -375,7 +386,9 @@ export default function App() {
     (s: Station) => {
       const cd = cooldowns[s.id];
       if (cd && cd > Date.now()) {
-        setSpeech('that one needs a minute. try again later.');
+        const remaining = Math.max(1, Math.ceil((cd - Date.now()) / 1000));
+        setSpeech(`restocking. ${remaining}s.`);
+        haptic('light');
         return;
       }
       pendingStation.current = s;

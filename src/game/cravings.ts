@@ -16,9 +16,10 @@ export const CRAVING_LABEL: Record<Exclude<ActionKind, 'tap'>, string> = {
 
 const CRAVING_KINDS: Exclude<ActionKind, 'tap'>[] = ['coke', 'jager', 'weed', 'water'];
 
-// New craving every ~4-6 minutes once she has nothing pending.
-const COOLDOWN_MIN_MS = 4 * 60 * 1000;
-const COOLDOWN_MAX_MS = 6 * 60 * 1000;
+// New craving every ~60-90 seconds once she has nothing pending. Fast
+// enough to feel like an active game loop.
+const COOLDOWN_MIN_MS = 60 * 1000;
+const COOLDOWN_MAX_MS = 90 * 1000;
 
 export const shouldStartCraving = (state: GameState, now: number): boolean => {
   if (state.craving.kind !== null) return false;

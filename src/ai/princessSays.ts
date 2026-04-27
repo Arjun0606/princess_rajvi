@@ -135,6 +135,51 @@ export const fetchSass = async (a: SaysArgs): Promise<string> => {
   return text ?? localFallback(a.mood, a.lastAction);
 };
 
+// Princess announces a craving she just developed. The LLM gets the
+// item kind as extra context so it can riff with personality. Falls back
+// to varied canned lines per item if the API is down.
+const CRAVING_FALLBACKS: Record<string, string[]> = {
+  coke: [
+    'i need a diet coke or i\'m abdicating',
+    'where\'s a coke. now. priority one.',
+    'the kingdom requires aspartame',
+    'someone get me a diet coke before i SCREAM',
+  ],
+  jager: [
+    'jäger o\'clock. don\'t make me wait.',
+    'the bottle is calling my name and her name is rajvi',
+    'i could really go for a jäger right about now',
+    'pour. me. the herbal liqueur.',
+  ],
+  weed: [
+    'okay i need to be a little stoned for this',
+    'where\'s the joint. asking for the kingdom.',
+    'i would simply like to vibe',
+    'time for a little smoke break',
+  ],
+  water: [
+    'the sunflowers haven\'t been watered. fix it.',
+    'gardening hours. i\'m calling you.',
+    'we owe the girls water. now.',
+    'go water my flowers, peasant',
+  ],
+};
+
+export const fetchCravingStart = async (
+  a: SaysArgs,
+  kind: 'coke' | 'jager' | 'weed' | 'water',
+): Promise<string> => {
+  const text = await callApi(
+    buildPayload(a, 'chat', {
+      cravingFor: kind,
+      instruction: `Princess just developed a sudden craving for ${kind}. Have her demand it in 1 line, in character — bratty, royal, slightly desperate but never dull. Mention the specific item. No quotes around the line.`,
+    }),
+  );
+  if (text) return text;
+  const lines = CRAVING_FALLBACKS[kind] ?? CRAVING_FALLBACKS.coke!;
+  return lines[Math.floor(Math.random() * lines.length)]!;
+};
+
 export const fetchLetterOnReturn = async (a: SaysArgs): Promise<string> => {
   const text = await callApi(buildPayload(a, 'letter'));
   return (

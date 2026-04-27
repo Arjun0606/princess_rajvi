@@ -39,6 +39,11 @@ export const Stations = ({ cooldowns, onStationTap, flowersAllTime }: Props) => 
     {STATIONS.map((s) => {
       const cooldownLeft = cooldowns[s.id] ? Math.max(0, cooldowns[s.id]! - Date.now()) : 0;
       const onCooldown = cooldownLeft > 0;
+      // Each station is wrapped in a circular pixel-art medallion. Picks up
+      // a clean wood-frame ring around a cream interior, with the PNG sprite
+      // centered inside via clip-path so its native rectangular background
+      // is hidden by the circular crop.
+      const size = Math.max(s.width, s.height);
       return (
         <div
           key={s.id}
@@ -48,8 +53,8 @@ export const Stations = ({ cooldowns, onStationTap, flowersAllTime }: Props) => 
             left: `${s.x * 100}%`,
             top: `${s.y * 100}%`,
             transform: 'translate(-50%, -100%)',
-            width: s.width,
-            height: s.height,
+            width: size,
+            height: size,
             cursor: 'pointer',
             zIndex: 3,
             filter: onCooldown ? 'grayscale(0.6) brightness(0.8)' : undefined,
@@ -58,22 +63,47 @@ export const Stations = ({ cooldowns, onStationTap, flowersAllTime }: Props) => 
             animation: !onCooldown ? 'station-pulse 2.4s ease-in-out infinite' : undefined,
           }}
         >
-          {/* Soft elliptical ground shadow — anchors the station to the floor */}
+          {/* Soft elliptical ground shadow — anchors the medallion to grass */}
           <div
             style={{
               position: 'absolute',
               bottom: -4,
               left: '50%',
               transform: 'translateX(-50%)',
-              width: '90%',
-              height: 10,
+              width: '92%',
+              height: 8,
               borderRadius: '50%',
               background: 'rgba(0,0,0,0.32)',
               filter: 'blur(2px)',
               pointerEvents: 'none',
             }}
           />
-          <StationSprite kind={s.id} flowersAllTime={flowersAllTime} />
+          {/* Circular medallion: wood ring + cream interior. The sprite is
+              clipped to a circle inside so its rectangular background
+              vanishes. */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background:
+                'radial-gradient(circle, #fff5dc 0%, #fff5dc 56%, #c98640 60%, #6b3a20 100%)',
+              boxShadow:
+                'inset 0 0 0 2px #6b3a20, 0 3px 0 rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: '8%',
+                borderRadius: '50%',
+                overflow: 'hidden',
+              }}
+            >
+              <StationSprite kind={s.id} flowersAllTime={flowersAllTime} />
+            </div>
+          </div>
           {/* Label tag — small stardew-paper pill below the station */}
           <div
             className="stardew-box"
@@ -122,11 +152,13 @@ const StationSprite = ({
         alt={kind}
         className="pixel-art"
         style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          // No transform-based animation — iOS Safari smooths transformed
-          // pixel-art images. Crispness wins over a 3s bob.
+          width: '130%',
+          height: '130%',
+          marginLeft: '-15%',
+          marginTop: '-15%',
+          objectFit: 'cover',
+          // Scale the image up by ~30% so the actual item fills the
+          // circular medallion crop, hiding the PNG's flat bg corners.
         }}
       />
       {kind === 'sunflower' && flowersAllTime > 0 && (
