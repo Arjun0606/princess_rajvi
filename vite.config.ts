@@ -9,7 +9,27 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'art/*.png'],
+      workbox: {
+        // Activate the new SW immediately on update so users see fresh deploys
+        // without an extra reload step.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        // Don't precache the bg PNGs (5MB) — let them load on demand via
+        // the network and cache as runtime.
+        globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/art\/.*\.png$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'art-images',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'Princess Rajvi',
         short_name: 'Rajvi',
