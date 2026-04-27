@@ -32,6 +32,7 @@ export const loadState = (): GameState => {
       itemsOnTable: parsed.itemsOnTable ?? [],
       milestones: parsed.milestones ?? {},
       chats: parsed.chats ?? [],
+      forage: { ...fresh.forage, ...(parsed.forage ?? {}) },
     };
   } catch {
     return initialState(Date.now());

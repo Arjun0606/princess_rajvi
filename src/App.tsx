@@ -41,6 +41,10 @@ import { ChatSheet } from './components/ChatSheet';
 import { Settings } from './components/Settings';
 import { AmbientLife } from './components/AmbientLife';
 import { MapCompanions } from './components/MapCompanions';
+import { Fountain } from './components/Fountain';
+import { Flora, FloraKind, FLORA_REACTIONS } from './components/Flora';
+import { Critters } from './components/Critters';
+import { sfx } from './game/audio';
 
 const LETTER_THRESHOLD_MIN = 90;
 const SASS_COOLDOWN_MS = 2400;
@@ -67,6 +71,7 @@ export default function App() {
   const [cooldowns, setCooldowns] = useState<Partial<Record<StationKind, number>>>({});
   const [tapMark, setTapMark] = useState<{ x: number; y: number; nonce: number } | null>(null);
   const [pickupSparkles, setPickupSparkles] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [floaters, setFloaters] = useState<{ id: number; text: string; x: number; y: number }[]>([]);
   const pendingStation = useRef<Station | null>(null);
 
   const lastSassAt = useRef(0);
@@ -271,9 +276,47 @@ export default function App() {
       next = await handleMilestone(next);
       setState(next);
       haptic(kind === 'jager' ? 'medium' : 'light');
+      sfx(kind === 'water' ? 'water' : 'station');
       requestSass(kind);
     },
     [state, requestSass, handleMilestone],
+  );
+
+  // Pick a flora item: bump a small stat, increment forage counter, fire
+  // sparkle + +1 floater + chime + a one-liner from princess.
+  const pickFlora = useCallback(
+    (kind: FloraKind, xPct: number, yPct: number) => {
+      const next: GameState = {
+        ...state,
+        stats: {
+          ...state.stats,
+          joy:   Math.min(100, state.stats.joy   + (kind === 'daisy'  ? 4 : kind === 'bush' ? 2 : 1)),
+          chill: Math.min(100, state.stats.chill + (kind === 'tuft'   ? 3 : 1)),
+        },
+        forage: {
+          petals:  state.forage.petals  + (kind === 'daisy'  ? 1 : 0),
+          berries: state.forage.berries + (kind === 'bush'   ? 1 : 0),
+          pebbles: state.forage.pebbles + (kind === 'pebble' ? 1 : 0),
+          tufts:   state.forage.tufts   + (kind === 'tuft'   ? 1 : 0),
+        },
+      };
+      setState(next);
+      haptic('light');
+      sfx('pickup-flower');
+      // Floating +1 indicator on the map at the picked spot
+      const id = Date.now() + Math.random();
+      const floaterText =
+        kind === 'daisy'  ? '+ petal' :
+        kind === 'bush'   ? '+ berry' :
+        kind === 'pebble' ? '+ pebble' :
+                            '+ tuft';
+      setFloaters((prev) => [...prev.slice(-4), { id, text: floaterText, x: xPct, y: yPct }]);
+      setTimeout(() => setFloaters((prev) => prev.filter((f) => f.id !== id)), 1400);
+      // Princess one-liner (skip the LLM, use canned reactions)
+      const lines = FLORA_REACTIONS[kind];
+      setSpeech(lines[Math.floor(Math.random() * lines.length)]!);
+    },
+    [state],
   );
 
   // Tap empty floor → walk princess to that point.
@@ -281,6 +324,7 @@ export default function App() {
     pendingStation.current = null;
     setPrincessTarget({ x: xPct, y: yPct });
     haptic('light');
+    sfx('tap');
   }, []);
 
   // Tap a station → walk princess to it; on arrival, pick up.
@@ -440,13 +484,20 @@ export default function App() {
       }}
     >
       <TopDownMap phase={phase} onMapTap={onMapTap}>
+        <Fountain xPct={0.5} yPct={0.6} />
+        <Flora onPick={pickFlora} />
+        <Critters phase={phase} />
         <Stations
           cooldowns={cooldowns}
           onStationTap={onStationTap}
           flowersAllTime={tickedState.flowersAllTime}
         />
         <AmbientLife phase={phase} />
-        <MapCompanions state={tickedState} />
+        <MapCompanions
+          state={tickedState}
+          princessX={princessTarget.x}
+          princessY={princessTarget.y}
+        />
         <WalkingPrincess
           pose={visiblePose}
           drunk={tickedState.drunk}
@@ -463,10 +514,17 @@ export default function App() {
         {pickupSparkles.map((p) => (
           <PickupSparkles key={p.id} xPct={p.x} yPct={p.y} />
         ))}
+        {floaters.map((f) => (
+          <Floater key={f.id} text={f.text} xPct={f.x} yPct={f.y} />
+        ))}
       </TopDownMap>
 
       <Stats stats={tickedState.stats} />
-      <Title flowers={tickedState.flowersAllTime} activity={activityLabel(activity)} />
+      <Title
+        flowers={tickedState.flowersAllTime}
+        forage={tickedState.forage}
+        activity={activityLabel(activity)}
+      />
       <SpeechBubble text={speech} loading={speechLoading} />
       <JournalButton
         count={tickedState.journal.length}
@@ -572,9 +630,11 @@ const SensorCTA = ({ onTap }: { onTap: () => void }) => (
 
 const Title = ({
   flowers,
+  forage,
   activity,
 }: {
   flowers: number;
+  forage: GameState['forage'];
   activity: string;
 }) => (
   <div
@@ -601,10 +661,39 @@ const Title = ({
         opacity: 0.92,
         marginTop: 2,
         letterSpacing: 0.5,
+        display: 'flex',
+        gap: 10,
+        justifyContent: 'center',
+        flexWrap: 'wrap',
       }}
     >
-      🌻 {flowers} sunflowers
+      <span>🌻 {flowers}</span>
+      {forage.petals  > 0 && <span>🌼 {forage.petals}</span>}
+      {forage.berries > 0 && <span>🫐 {forage.berries}</span>}
+      {forage.pebbles > 0 && <span>🪨 {forage.pebbles}</span>}
+      {forage.tufts   > 0 && <span>🌿 {forage.tufts}</span>}
     </div>
+  </div>
+);
+
+const Floater = ({ text, xPct, yPct }: { text: string; xPct: number; yPct: number }) => (
+  <div
+    style={{
+      position: 'absolute',
+      left: `${xPct * 100}%`,
+      top: `${yPct * 100}%`,
+      transform: 'translate(-50%, 0)',
+      animation: 'float-up 1.2s ease-out forwards',
+      pointerEvents: 'none',
+      zIndex: 7,
+      fontFamily: 'var(--pixel-font)',
+      fontSize: 14,
+      color: '#fff5dc',
+      textShadow: '1px 1px 0 #4a2710, 0 0 6px rgba(0,0,0,0.6)',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    {text}
   </div>
 );
 

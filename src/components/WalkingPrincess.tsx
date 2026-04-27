@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pose } from '../game/state';
+import { sfx } from '../game/audio';
 import { PixelPrincess } from './PixelPrincess';
 
 type Puff = { id: number; t: number; dx: number };
@@ -78,7 +79,7 @@ export const WalkingPrincess = ({
     return Math.max(400, distance * TRAVERSAL_MS);
   })();
 
-  // Walking dust puffs
+  // Walking dust puffs + footstep clicks
   useEffect(() => {
     if (!walking) return;
     const interval = setInterval(() => {
@@ -86,7 +87,8 @@ export const WalkingPrincess = ({
         ...prev.slice(-6),
         { id: ++puffId, t: Date.now(), dx: (Math.random() - 0.5) * 6 },
       ]);
-    }, 220);
+      sfx('footstep');
+    }, 360);
     return () => clearInterval(interval);
   }, [walking]);
 

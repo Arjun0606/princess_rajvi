@@ -89,6 +89,14 @@ export type GameState = {
   lastDailyLetterAt: number;
   milestones: Record<string, number>; // milestone id → timestamp first hit
   chats: ChatMessage[];
+
+  // Foraging — items the player has picked from the meadow flora.
+  forage: {
+    petals: number;
+    berries: number;
+    pebbles: number;
+    tufts: number;
+  };
 };
 
 export const MAX_STAT = 100;
@@ -127,6 +135,7 @@ export const initialState = (now: number): GameState => ({
   lastDailyLetterAt: 0,
   milestones: {},
   chats: [],
+  forage: { petals: 0, berries: 0, pebbles: 0, tufts: 0 },
 });
 
 export const clamp = (n: number, lo = MIN_STAT, hi = MAX_STAT) =>

@@ -84,8 +84,7 @@ export const TopDownMap = ({ phase, children, onMapTap }: Props) => {
         <Horizon phase={phase} />
         <Meadow />
         <Paths />
-        <ScatteredFlora />
-        {/* Children: stations, companions, princess */}
+        {/* Children: stations, fountain, flora, companions, princess */}
         <div style={{ position: 'absolute', inset: 0 }}>{children}</div>
         <PhaseOverlay phase={phase} />
       </div>
@@ -345,114 +344,8 @@ const Paths = () => (
       <path d="M 50 60 Q 70 72, 80 86" />
       <path d="M 50 60 L 50 22" />
     </g>
-    {/* Central medallion: pink rose stone tile */}
-    <g>
-      <circle cx="50" cy="60" r="6.5" fill="#b96680" />
-      <circle cx="50" cy="60" r="5.5" fill="#ffd5e0" />
-      <circle cx="50" cy="60" r="4.5" fill="#fff2f7" />
-      {/* rose petals motif */}
-      <rect x="49" y="56"  width="2" height="2" fill="#ff5d8f" />
-      <rect x="45" y="59"  width="2" height="2" fill="#ff5d8f" />
-      <rect x="53" y="59"  width="2" height="2" fill="#ff5d8f" />
-      <rect x="49" y="62"  width="2" height="2" fill="#ff5d8f" />
-      <rect x="49" y="59"  width="2" height="2" fill="#ffd84d" />
-    </g>
   </svg>
 );
-
-// Pixel-art micro-decorations scattered across the grass — daisies, small
-// bushes, pebbles, dandelion tufts. Positioned in 0..1 coords. Static
-// (not interactive) so a pure decorative layer.
-const ScatteredFlora = () => {
-  const items: { kind: 'daisy' | 'bush' | 'pebble' | 'tuft'; x: number; y: number }[] = [
-    { kind: 'daisy',  x: 0.12, y: 0.30 },
-    { kind: 'daisy',  x: 0.30, y: 0.48 },
-    { kind: 'daisy',  x: 0.40, y: 0.70 },
-    { kind: 'daisy',  x: 0.62, y: 0.32 },
-    { kind: 'daisy',  x: 0.72, y: 0.72 },
-    { kind: 'daisy',  x: 0.86, y: 0.50 },
-    { kind: 'bush',   x: 0.08, y: 0.62 },
-    { kind: 'bush',   x: 0.92, y: 0.66 },
-    { kind: 'bush',   x: 0.32, y: 0.86 },
-    { kind: 'bush',   x: 0.66, y: 0.88 },
-    { kind: 'pebble', x: 0.22, y: 0.40 },
-    { kind: 'pebble', x: 0.74, y: 0.42 },
-    { kind: 'pebble', x: 0.40, y: 0.82 },
-    { kind: 'pebble', x: 0.58, y: 0.84 },
-    { kind: 'tuft',   x: 0.18, y: 0.54 },
-    { kind: 'tuft',   x: 0.82, y: 0.54 },
-    { kind: 'tuft',   x: 0.50, y: 0.30 },
-    { kind: 'tuft',   x: 0.50, y: 0.86 },
-  ];
-  return (
-    <>
-      {items.map((it, i) => (
-        <div
-          key={i}
-          style={{
-            position: 'absolute',
-            left: `${it.x * 100}%`,
-            top: `${it.y * 100}%`,
-            transform: 'translate(-50%, -100%)',
-            pointerEvents: 'none',
-            zIndex: 2,
-          }}
-        >
-          <FloraSprite kind={it.kind} />
-        </div>
-      ))}
-    </>
-  );
-};
-
-const FloraSprite = ({ kind }: { kind: 'daisy' | 'bush' | 'pebble' | 'tuft' }) => {
-  switch (kind) {
-    case 'daisy':
-      return (
-        <svg viewBox="0 0 8 10" width="14" height="18" shapeRendering="crispEdges">
-          <rect x="3" y="6" width="1" height="4" fill="#3a8a3a" />
-          <rect x="2" y="8" width="1" height="1" fill="#5fc55f" />
-          <rect x="4" y="7" width="1" height="1" fill="#5fc55f" />
-          <rect x="3" y="2" width="2" height="1" fill="#fff5dc" />
-          <rect x="2" y="3" width="4" height="2" fill="#fff5dc" />
-          <rect x="3" y="5" width="2" height="1" fill="#fff5dc" />
-          <rect x="3" y="3" width="2" height="2" fill="#ffd84d" />
-        </svg>
-      );
-    case 'bush':
-      return (
-        <svg viewBox="0 0 14 10" width="28" height="20" shapeRendering="crispEdges">
-          <ellipse cx="7" cy="8"  rx="6" ry="2" fill="#3a8a3a" />
-          <ellipse cx="3" cy="6"  rx="3" ry="3" fill="#5fc55f" />
-          <ellipse cx="7" cy="5"  rx="4" ry="3" fill="#5fc55f" />
-          <ellipse cx="11" cy="6" rx="3" ry="3" fill="#5fc55f" />
-          <ellipse cx="4" cy="5"  rx="2" ry="2" fill="#86d97a" />
-          <ellipse cx="9" cy="4"  rx="2" ry="2" fill="#86d97a" />
-          {/* tiny pink berries */}
-          <rect x="3" y="4" width="1" height="1" fill="#ff5d8f" />
-          <rect x="9" y="3" width="1" height="1" fill="#ff5d8f" />
-          <rect x="6" y="6" width="1" height="1" fill="#ff5d8f" />
-        </svg>
-      );
-    case 'pebble':
-      return (
-        <svg viewBox="0 0 8 4" width="14" height="7" shapeRendering="crispEdges">
-          <ellipse cx="4" cy="2" rx="3.5" ry="1.5" fill="#a89888" />
-          <ellipse cx="3" cy="1.5" rx="2"  ry="0.8" fill="#c4b8a8" />
-        </svg>
-      );
-    case 'tuft':
-      return (
-        <svg viewBox="0 0 8 5" width="14" height="9" shapeRendering="crispEdges">
-          <rect x="3" y="0" width="1" height="4" fill="#3a8a3a" />
-          <rect x="2" y="1" width="1" height="3" fill="#5fc55f" />
-          <rect x="4" y="1" width="1" height="3" fill="#5fc55f" />
-          <rect x="1" y="2" width="1" height="2" fill="#86d97a" />
-          <rect x="5" y="2" width="1" height="2" fill="#86d97a" />
-        </svg>
-      );
-  }
-};
 
 const PhaseOverlay = ({ phase }: { phase: SkyPhase }) => (
   <div

@@ -201,6 +201,45 @@ img, svg {
   100% { transform: translate(var(--dx, 0), var(--dy, 0)) rotate(45deg) scale(1.4); opacity: 0; }
 }
 
+/* Fountain droplet: arcs up, peaks, falls back into the basin. */
+@keyframes fountain-drop {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0; }
+  10%  { opacity: 1; }
+  40%  { transform: translate(calc(var(--dx, 0) * 0.7), -28px) scale(1); opacity: 1; }
+  70%  { transform: translate(var(--dx, 0), -16px) scale(0.9); opacity: 0.8; }
+  100% { transform: translate(var(--dx, 0), 8px) scale(0.6); opacity: 0; }
+}
+
+/* Bee buzzing in a tight figure-8 around its bush */
+@keyframes bee-buzz {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(8px, -6px); }
+  50%  { transform: translate(0, -10px); }
+  75%  { transform: translate(-8px, -6px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Bunny hop — feet tuck under, springs forward, lands */
+@keyframes bunny-hop {
+  0%, 100% { transform: translateY(0); }
+  40%      { transform: translateY(-10px); }
+  60%      { transform: translateY(-12px); }
+}
+
+/* Tiny pop animation when collecting a flora item */
+@keyframes flora-pop {
+  0%   { transform: translate(-50%, -100%) scale(1); }
+  40%  { transform: translate(-50%, -100%) scale(1.4); }
+  100% { transform: translate(-50%, -100%) scale(0); opacity: 0; }
+}
+
+/* Hovering +1 indicator that floats up and fades */
+@keyframes float-up {
+  0%   { transform: translate(-50%, 0)     scale(0.8); opacity: 0; }
+  20%  { transform: translate(-50%, -10px) scale(1.1); opacity: 1; }
+  100% { transform: translate(-50%, -40px) scale(1);   opacity: 0; }
+}
+
 .pixel {
   shape-rendering: crispEdges;
 }
