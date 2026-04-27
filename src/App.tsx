@@ -44,7 +44,14 @@ import { MapCompanions } from './components/MapCompanions';
 import { Fountain } from './components/Fountain';
 import { Flora, FloraKind, FLORA_REACTIONS } from './components/Flora';
 import { Critters } from './components/Critters';
+import { ThoughtBubble } from './components/ThoughtBubble';
 import { sfx } from './game/audio';
+import {
+  shouldStartCraving,
+  startCraving,
+  tryFulfillCraving,
+  CRAVING_LABEL,
+} from './game/cravings';
 
 const LETTER_THRESHOLD_MIN = 90;
 const SASS_COOLDOWN_MS = 2400;
@@ -118,6 +125,25 @@ export default function App() {
     }, 30_000);
     return () => clearInterval(t);
   }, [sleeping]);
+
+  // Cravings game: every ~30s, check whether she should start craving
+  // something. When a new craving starts, she announces it; the player
+  // has to walk her to the matching station.
+  useEffect(() => {
+    if (sleeping) return;
+    const t = setInterval(() => {
+      if (shouldStartCraving(state, Date.now())) {
+        const next = startCraving(state, Date.now());
+        setState(next);
+        const kind = next.craving.kind;
+        if (kind && kind !== 'tap') {
+          setSpeech(`hmm. i could really go for ${CRAVING_LABEL[kind]}.`);
+          sfx('pickup');
+        }
+      }
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [state, sleeping]);
 
   // First-run + return letter + daily letter + companions.
   useEffect(() => {
@@ -273,11 +299,28 @@ export default function App() {
       else if (kind === 'weed') next = giveWeed(state, t);
       else if (kind === 'water') next = water(state, t);
       else if (kind === 'tap') next = tapAction(state, t);
+      // Try to fulfill the current craving if this matches.
+      const cravingResult = tryFulfillCraving(next, kind, t);
+      next = cravingResult.state;
+      if (cravingResult.fulfilled) {
+        // Big celebration: extra haptic, three-note chime, joy spike.
+        next = {
+          ...next,
+          stats: { ...next.stats, joy: Math.min(100, next.stats.joy + 12) },
+        };
+        haptic('heavy');
+        sfx('chime');
+      }
       next = await handleMilestone(next);
       setState(next);
       haptic(kind === 'jager' ? 'medium' : 'light');
       sfx(kind === 'water' ? 'water' : 'station');
-      requestSass(kind);
+      if (cravingResult.fulfilled) {
+        // Override the generic sass line with a craving-fulfilled line.
+        setSpeech('THANK YOU. that was exactly what i needed.');
+      } else {
+        requestSass(kind);
+      }
     },
     [state, requestSass, handleMilestone],
   );
@@ -511,6 +554,11 @@ export default function App() {
           }}
           onLongPress={handleLongPress}
         />
+        <ThoughtBubble
+          craving={tickedState.craving.kind}
+          xPct={princessTarget.x}
+          yPct={princessTarget.y}
+        />
         {pickupSparkles.map((p) => (
           <PickupSparkles key={p.id} xPct={p.x} yPct={p.y} />
         ))}
@@ -523,6 +571,7 @@ export default function App() {
       <Title
         flowers={tickedState.flowersAllTime}
         forage={tickedState.forage}
+        cravingsFulfilled={tickedState.craving.fulfilledCount}
         activity={activityLabel(activity)}
       />
       <SpeechBubble text={speech} loading={speechLoading} />
@@ -631,42 +680,45 @@ const SensorCTA = ({ onTap }: { onTap: () => void }) => (
 const Title = ({
   flowers,
   forage,
+  cravingsFulfilled,
   activity,
 }: {
   flowers: number;
   forage: GameState['forage'];
+  cravingsFulfilled: number;
   activity: string;
 }) => (
   <div
     style={{
       position: 'absolute',
-      top: 'calc(env(safe-area-inset-top, 0) + 88px)',
+      top: 'calc(env(safe-area-inset-top, 0) + 56px)',
       left: 0,
       right: 0,
       textAlign: 'center',
       color: '#fff8e0',
-      fontSize: 18,
+      fontSize: 13,
       fontFamily: 'var(--pixel-font)',
-      letterSpacing: 1,
-      textShadow: '2px 2px 0 #4a2710, 0 0 12px rgba(0,0,0,0.45)',
+      letterSpacing: 0.6,
+      textShadow: '1px 1px 0 #4a2710, 0 0 8px rgba(0,0,0,0.45)',
       zIndex: 5,
       pointerEvents: 'none',
-      lineHeight: 1.05,
+      lineHeight: 1.1,
     }}
   >
-    Princess Rajvi · {activity}
+    {activity}
     <div
       style={{
-        fontSize: 14,
+        fontSize: 12,
         opacity: 0.92,
         marginTop: 2,
-        letterSpacing: 0.5,
+        letterSpacing: 0.4,
         display: 'flex',
-        gap: 10,
+        gap: 8,
         justifyContent: 'center',
         flexWrap: 'wrap',
       }}
     >
+      {cravingsFulfilled > 0 && <span>💖 {cravingsFulfilled}</span>}
       <span>🌻 {flowers}</span>
       {forage.petals  > 0 && <span>🌼 {forage.petals}</span>}
       {forage.berries > 0 && <span>🫐 {forage.berries}</span>}

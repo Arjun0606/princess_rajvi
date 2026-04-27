@@ -97,6 +97,14 @@ export type GameState = {
     pebbles: number;
     tufts: number;
   };
+
+  // Cravings game: princess randomly wants something. Player has to walk
+  // her to the matching station to fulfill it.
+  craving: {
+    kind: ActionKind | null;
+    since: number;        // when this craving started
+    fulfilledCount: number; // total cravings fulfilled all-time
+  };
 };
 
 export const MAX_STAT = 100;
@@ -136,6 +144,7 @@ export const initialState = (now: number): GameState => ({
   milestones: {},
   chats: [],
   forage: { petals: 0, berries: 0, pebbles: 0, tufts: 0 },
+  craving: { kind: null, since: 0, fulfilledCount: 0 },
 });
 
 export const clamp = (n: number, lo = MIN_STAT, hi = MAX_STAT) =>

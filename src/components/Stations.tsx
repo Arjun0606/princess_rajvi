@@ -20,13 +20,13 @@ export type Station = {
 // point. Princess walks up the path and arrives at the station base.
 export const STATIONS: Station[] = [
   // Top-left: sunflower garden bed
-  { id: 'sunflower', x: 0.18, y: 0.46, width: 90, height: 96, label: 'sunflower garden', action: 'water' },
+  { id: 'sunflower', x: 0.20, y: 0.42, width: 56, height: 60, label: 'garden',  action: 'water' },
   // Top-right: mini-fridge with diet coke
-  { id: 'coke',      x: 0.82, y: 0.46, width: 60, height: 86, label: 'mini fridge',     action: 'coke' },
+  { id: 'coke',      x: 0.80, y: 0.42, width: 36, height: 56, label: 'fridge',  action: 'coke' },
   // Bottom-left: cocktail table with jäger
-  { id: 'jager',     x: 0.20, y: 0.86, width: 82, height: 72, label: 'cocktail table',  action: 'jager' },
+  { id: 'jager',     x: 0.22, y: 0.82, width: 50, height: 48, label: 'bar',     action: 'jager' },
   // Bottom-right: floor cushion with joint
-  { id: 'joint',     x: 0.80, y: 0.86, width: 82, height: 66, label: 'cushion',         action: 'weed' },
+  { id: 'joint',     x: 0.78, y: 0.82, width: 50, height: 46, label: 'cushion', action: 'weed' },
 ];
 
 type Props = {

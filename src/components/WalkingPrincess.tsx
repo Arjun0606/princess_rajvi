@@ -34,7 +34,7 @@ export const WalkingPrincess = ({
   onArrive,
   onTap,
   onLongPress,
-  spriteHeight = 86,
+  spriteHeight = 48,
 }: Props) => {
   const [pos, setPos] = useState({ x: targetX, y: targetY });
   const [facing, setFacing] = useState<'left' | 'right'>('right');
@@ -144,14 +144,14 @@ export const WalkingPrincess = ({
       <div
         style={{
           position: 'absolute',
-          bottom: -4,
+          bottom: -2,
           left: '50%',
           transform: 'translateX(-50%)',
           width: '70%',
-          height: 8,
+          height: 4,
           borderRadius: '50%',
           background: 'rgba(0,0,0,0.32)',
-          filter: 'blur(2px)',
+          filter: 'blur(1.5px)',
           pointerEvents: 'none',
           zIndex: -1,
         }}
