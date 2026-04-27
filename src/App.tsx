@@ -4,7 +4,7 @@ import { loadState, saveState } from './game/persistence';
 import { tick } from './game/decay';
 import { giveCoke, giveJager, giveWeed, water, tap as tapAction } from './game/actions';
 import { phaseFor } from './game/time';
-import { activityFor, activityLabel } from './game/routine';
+import { activityFor, naturalPoseFor, activityLabel } from './game/routine';
 import {
   useIdle,
   useNow,
@@ -29,7 +29,8 @@ import {
 import { newlyAvailableCompanion } from './game/companions';
 
 import { Background } from './components/Background';
-import { Foreground } from './components/Foreground';
+import { WalkingPrincess } from './components/WalkingPrincess';
+import { FloorItem } from './components/FloorItem';
 import { Particles } from './components/Particles';
 import { Stats } from './components/Stats';
 import { ActionTray } from './components/ActionTray';
@@ -44,6 +45,23 @@ import { FlowerInfo } from './components/FlowerInfo';
 const LETTER_THRESHOLD_MIN = 90;
 const SASS_COOLDOWN_MS = 2400;
 const MAX_CHAT_MESSAGES = 80;
+const IDLE_WANDER_MS = 35_000;
+
+type FloorThing = {
+  id: string;
+  kind: 'coke' | 'jager' | 'joint' | 'sunflower';
+  x: number;
+  droppedAt: number;
+  picked: boolean;
+};
+
+const ACTION_TO_FLOOR_KIND: Record<ActionKind, FloorThing['kind'] | null> = {
+  coke: 'coke',
+  jager: 'jager',
+  weed: 'joint',
+  water: 'sunflower',
+  tap: null,
+};
 
 export default function App() {
   const [state, setState] = useState<GameState>(() => loadState());
@@ -60,6 +78,11 @@ export default function App() {
   const [booted, setBooted] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // World — princess position and dropped items.
+  const [princessX, setPrincessX] = useState(0.5);
+  const [floorItems, setFloorItems] = useState<FloorThing[]>([]);
+  const pendingPickup = useRef<{ itemId: string; action: ActionKind } | null>(null);
+
   const lastSassAt = useRef(0);
   const initRanRef = useRef(false);
 
@@ -72,7 +95,10 @@ export default function App() {
   const activity = activityFor(date.getHours());
   const mood = moodFor(tickedState, date.getHours());
   const sleeping = activity === 'sleeping' || (idle && phase === 'night');
-  const visiblePose = sleeping ? 'sleep' : (tickedState.pose === 'default' ? 'default' : tickedState.pose);
+  const naturalPose = naturalPoseFor(activity);
+  const visiblePose = sleeping
+    ? 'sleep'
+    : (tickedState.pose === 'default' ? naturalPose : tickedState.pose);
 
   useEffect(() => {
     const t = setTimeout(() => setBooted(true), 200);
@@ -88,6 +114,18 @@ export default function App() {
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  // Idle wandering — every ~35s, princess strolls to a random floor position
+  // (only when she has no current target/item to pick up and isn't sleeping).
+  useEffect(() => {
+    if (sleeping) return;
+    const t = setInterval(() => {
+      if (floorItems.some((i) => !i.picked)) return;
+      const newX = 0.18 + Math.random() * 0.64;
+      setPrincessX(newX);
+    }, IDLE_WANDER_MS);
+    return () => clearInterval(t);
+  }, [sleeping, floorItems]);
 
   useEffect(() => {
     if (initRanRef.current) return;
@@ -233,7 +271,9 @@ export default function App() {
     return withEntry;
   }, []);
 
-  const doAction = useCallback(
+  // Apply the underlying state mutation (stat changes, milestones) for an
+  // action. Called when princess actually picks up the dropped item.
+  const applyAction = useCallback(
     async (kind: ActionKind) => {
       const t = Date.now();
       let next = state;
@@ -242,14 +282,57 @@ export default function App() {
       else if (kind === 'weed') next = giveWeed(state, t);
       else if (kind === 'water') next = water(state, t);
       else if (kind === 'tap') next = tapAction(state, t);
-
       next = await handleMilestone(next);
-
       setState(next);
       haptic(kind === 'jager' ? 'medium' : 'light');
       requestSass(kind);
     },
     [state, requestSass, handleMilestone],
+  );
+
+  // User triggered an action — drop the item on the floor at a random spot,
+  // and walk princess toward it. The actual stat update fires when she
+  // arrives (in onArrive).
+  const doAction = useCallback(
+    (kind: ActionKind) => {
+      const floorKind = ACTION_TO_FLOOR_KIND[kind];
+      if (!floorKind) {
+        // 'tap' has no floor item — apply immediately.
+        applyAction(kind);
+        return;
+      }
+      // Drop item somewhere away from princess so she has a real distance to walk.
+      let dropX = 0.18 + Math.random() * 0.64;
+      let attempts = 0;
+      while (Math.abs(dropX - princessX) < 0.18 && attempts < 6) {
+        dropX = 0.18 + Math.random() * 0.64;
+        attempts++;
+      }
+      const id = `fi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      setFloorItems((prev) => [...prev, { id, kind: floorKind, x: dropX, droppedAt: Date.now(), picked: false }]);
+      pendingPickup.current = { itemId: id, action: kind };
+      setPrincessX(dropX);
+      haptic('light');
+    },
+    [applyAction, princessX],
+  );
+
+  const onPrincessArrive = useCallback(
+    (_x: number) => {
+      const pending = pendingPickup.current;
+      if (!pending) return;
+      pendingPickup.current = null;
+      // Mark item as picked (animates out).
+      setFloorItems((prev) =>
+        prev.map((i) => (i.id === pending.itemId ? { ...i, picked: true } : i)),
+      );
+      // After the pickup animation, remove and apply effect.
+      setTimeout(() => {
+        setFloorItems((prev) => prev.filter((i) => i.id !== pending.itemId));
+        applyAction(pending.action);
+      }, 350);
+    },
+    [applyAction],
   );
 
   const sendMessage = useCallback(
@@ -371,9 +454,17 @@ export default function App() {
       <Background date={date} />
       <Particles phase={phase} />
 
-      {/* Tap-target over the princess area in the background scene.
-          Tap → chat. Long-press → secret line. Drop-target for items. */}
-      <PrincessTapZone
+      {/* Floor items — princess walks to these and picks them up */}
+      {floorItems.map((it) => (
+        <FloorItem key={it.id} kind={it.kind} x={it.x} picked={it.picked} />
+      ))}
+
+      <WalkingPrincess
+        pose={visiblePose}
+        drunk={tickedState.drunk}
+        high={tickedState.high}
+        targetX={princessX}
+        onArrive={onPrincessArrive}
         onTap={() => {
           haptic('light');
           setChatOpen(true);
@@ -381,15 +472,8 @@ export default function App() {
         onLongPress={handleLongPress}
       />
 
-      <Foreground
-        itemsOnTable={tickedState.itemsOnTable}
-        flowers={tickedState.garden}
-        now={now}
-        onFlowerTap={setTappedFlower}
-      />
-
       <Stats stats={tickedState.stats} />
-      <Title flowers={tickedState.flowersAllTime} activity={activityLabel(activity)} pose={visiblePose} />
+      <Title flowers={tickedState.flowersAllTime} activity={activityLabel(activity)} />
       <SpeechBubble text={speech} loading={speechLoading} />
       <ActionTray onAction={doAction} />
       <JournalButton
@@ -450,57 +534,6 @@ const needsMotionPermission = () => {
   return !!D.DeviceMotionEvent?.requestPermission;
 };
 
-// Invisible button covering the area in the background where princess is
-// rendered. Forwards taps to the chat-open handler and acts as the drop
-// target for dragged items.
-const PrincessTapZone = ({
-  onTap,
-  onLongPress,
-}: {
-  onTap: () => void;
-  onLongPress: () => void;
-}) => {
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startedAt = useRef<number>(0);
-
-  return (
-    <div
-      data-drop-target="princess"
-      onPointerDown={() => {
-        startedAt.current = Date.now();
-        if (longPressTimer.current) clearTimeout(longPressTimer.current);
-        longPressTimer.current = setTimeout(() => {
-          onLongPress();
-          longPressTimer.current = null;
-        }, 600);
-      }}
-      onPointerUp={() => {
-        if (longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-          longPressTimer.current = null;
-          if (Date.now() - startedAt.current < 220) onTap();
-        }
-      }}
-      onPointerCancel={() => {
-        if (longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-          longPressTimer.current = null;
-        }
-      }}
-      style={{
-        position: 'absolute',
-        left: '20%',
-        right: '20%',
-        top: '30%',
-        bottom: '20%',
-        zIndex: 3,
-        cursor: 'pointer',
-        WebkitTapHighlightColor: 'transparent',
-      }}
-    />
-  );
-};
-
 const SettingsButton = ({ onClick }: { onClick: () => void }) => (
   <button
     onClick={onClick}
@@ -552,11 +585,9 @@ const SensorCTA = ({ onTap }: { onTap: () => void }) => (
 const Title = ({
   flowers,
   activity,
-  pose: _pose,
 }: {
   flowers: number;
   activity: string;
-  pose: string;
 }) => (
   <div
     style={{
@@ -616,7 +647,7 @@ const ChatHint = ({ visible }: { visible: boolean }) => {
         WebkitBackdropFilter: 'blur(8px)',
       }}
     >
-      tap princess to chat
+      tap princess to chat · drop a gift, she'll come pick it up
     </div>
   );
 };

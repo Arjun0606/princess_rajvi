@@ -31,8 +31,8 @@ CHARACTER: Princess Rajvi — a young south asian princess with chunky pixel str
 WORLD: A small private terrace of a pink stone castle. Pale rose marble floor. Curved ornate pink balustrade. Endless sunflower meadow on rolling hills below. Marble side table on the right. Sunflower planter on the left. Pink rose vines on the right wall. Castle's pink turrets visible upper right.
 `.trim();
 
-const SCENE = (timeOfDay, palette, princessPose) =>
-  `${STYLE_PREAMBLE}\n\nSCENE: A pink castle terrace at ${timeOfDay}. ${palette}. Sharp 16-bit pixel art, no anti-aliasing, no smooth gradients, no photo-real shading. Stardew Valley / Eastward / Sea of Stars aesthetic.\n\nThe scene shows Princess Rajvi (south asian princess described above) ${princessPose} on a pale rose marble terrace. Curved pink stone balustrade behind her overlooking a sunflower meadow. A small marble side table on the right. A planter of sunflowers on the left. Pink rose vines on the right wall. Distant pink castle turrets in the upper right. Mobile portrait composition with princess centered, slightly toward the lower third.`;
+const SCENE = (timeOfDay, palette) =>
+  `${STYLE_PREAMBLE}\n\nSCENE: A COMPLETELY EMPTY pink castle terrace at ${timeOfDay}. ${palette}. Sharp 16-bit pixel art, no anti-aliasing, no smooth gradients, no photo-real shading. Stardew Valley / Eastward / Sea of Stars aesthetic.\n\nABSOLUTELY CRITICAL — DO NOT INCLUDE: NO princess, NO people, NO characters, NO humans, NO faces, NO eyes, NO figures of any kind. The terrace must be ENTIRELY EMPTY.\n\nThe scene composition (top-down 3/4 perspective, like a Stardew Valley screenshot):\n- A wide flat marble terrace floor occupies the bottom HALF of the image (this is the playable floor where a character would walk).\n- A pink stone balustrade across the middle horizon, behind which a sunflower meadow rolls to distant hills.\n- An ornate marble side table on the right edge of the terrace.\n- A planter overflowing with sunflowers on the left edge.\n- Pink rose vines climbing the pink stone castle wall on the right.\n- Distant pink castle turrets visible in the upper right.\n- The horizon with the meadow + sky takes the upper half.\n- The empty floor takes the lower half — this is critical, leave it OPEN for a character to be added later.\n\nLandscape composition. Width 1792, height 1024.`;
 
 const SPRITE = (description) =>
   `${STYLE_PREAMBLE}\n\nSPRITE: ${description}. Full body, transparent background, character isolated and centered. Render as a true pixel art sprite with sharp edges and no anti-aliasing. The character takes up roughly 80% of the frame height.`;
@@ -44,41 +44,37 @@ const UI = (description) =>
   `${STYLE_PREAMBLE.split('\n')[0]}\n\nUI ELEMENT: ${description}. Transparent background. Pixel art, dark outline, sharp pixels.`;
 
 const ASSETS = [
-  // ---- Backgrounds with princess (4 time-of-day variants) ----
+  // ---- Empty backgrounds (4 time-of-day variants, landscape) ----
   {
     file: 'bg-dawn.png',
-    size: '1024x1024',
+    size: '1792x1024',
     prompt: SCENE(
       'dawn (early morning)',
       'Soft peach and rose-pink dawn sky with a small chunky pixel sun rising over the distant horizon. Marble floor catches the first warm light. Warm peach / rose / pale-pink palette',
-      'just waking up, stretching gently with arms above her head, sleepy soft smile',
     ),
   },
   {
     file: 'bg-day.png',
-    size: '1024x1024',
+    size: '1792x1024',
     prompt: SCENE(
       'midday',
       'Bright cheerful blue pixel sky with chunky pixel white clouds. Sunflower meadow in full bloom. Marble floor in golden midday light. Bright cyan / yellow / green palette',
-      'standing centered with hands clasped in front of her, gentle smile, holding a single bright sunflower',
     ),
   },
   {
     file: 'bg-dusk.png',
-    size: '1024x1024',
+    size: '1792x1024',
     prompt: SCENE(
-      'sunset (cocktail hour)',
+      'sunset',
       'Sky is a vivid pixel gradient of orange-pink-lavender with chunky pink clouds, sun setting on the horizon. Sunflowers glow gold in the last light. Warm orange / pink / coral palette',
-      'standing centered, mischievous grin with a small wink, raising a tiny shot glass of dark green Jägermeister with both hands toward the viewer in a toast',
     ),
   },
   {
     file: 'bg-night.png',
-    size: '1024x1024',
+    size: '1792x1024',
     prompt: SCENE(
       'night',
       'Deep navy purple pixel night sky with a chunky pixel full moon and scattered pixel stars. Fireflies in the meadow. Warm candlelight pours from inside the castle. Cool purple / midnight blue palette with warm yellow accents',
-      'sitting cross-legged on the floor, eyes half-closed in a deeply relaxed expression, holding a tiny lit joint between her fingers with a small grey smoke curl rising',
     ),
   },
 

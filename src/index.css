@@ -113,6 +113,18 @@ img, svg {
   100% { transform: translate(-260px, 160px) rotate(var(--angle, 30deg)); opacity: 0; }
 }
 
+@keyframes walk-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(-3px); }
+}
+
+@keyframes item-drop {
+  0%   { transform: translateX(-50%) translateY(-200px) scale(0.3); opacity: 0; }
+  60%  { transform: translateX(-50%) translateY(0)      scale(1.1); opacity: 1; }
+  80%  { transform: translateX(-50%) translateY(-6px)   scale(1.0); }
+  100% { transform: translateX(-50%) translateY(0)      scale(1); opacity: 1; }
+}
+
 .pixel {
   shape-rendering: crispEdges;
 }
