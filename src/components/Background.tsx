@@ -5,11 +5,13 @@ type Props = {
   date: Date;
 };
 
+// Version query string busts old caches when bg art is regenerated.
+const BG_VERSION = 'v11';
 const PHASE_TO_FILE: Record<SkyPhase, string> = {
-  dawn: '/art/bg-dawn.png',
-  day: '/art/bg-day.png',
-  dusk: '/art/bg-dusk.png',
-  night: '/art/bg-night.png',
+  dawn: `/art/bg-dawn.png?${BG_VERSION}`,
+  day: `/art/bg-day.png?${BG_VERSION}`,
+  dusk: `/art/bg-dusk.png?${BG_VERSION}`,
+  night: `/art/bg-night.png?${BG_VERSION}`,
 };
 
 const PHASE_FALLBACK_GRADIENT: Record<SkyPhase, string> = {

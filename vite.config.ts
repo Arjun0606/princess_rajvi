@@ -11,20 +11,20 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'art/*.png'],
       workbox: {
-        // Activate the new SW immediately on update so users see fresh deploys
-        // without an extra reload step.
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        // Don't precache the bg PNGs (5MB) — let them load on demand via
-        // the network and cache as runtime.
         globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
         runtimeCaching: [
           {
+            // NetworkFirst so fresh PNG re-deploys always replace the cache.
+            // Falls back to cache only if the network fails. New cache name
+            // (-v3) so this fully replaces the old CacheFirst cache.
             urlPattern: /\/art\/.*\.png$/,
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'art-images',
+              cacheName: 'art-images-v3',
+              networkTimeoutSeconds: 4,
               expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
