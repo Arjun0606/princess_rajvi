@@ -157,8 +157,8 @@ img, svg {
 }
 
 @keyframes walk-bob {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%      { transform: translateX(-50%) translateY(-3px); }
+  0%, 100% { transform: translate(-50%, -100%) translateY(0); }
+  50%      { transform: translate(-50%, -100%) translateY(-3px); }
 }
 
 @keyframes item-drop {
@@ -188,6 +188,17 @@ img, svg {
   0%   { transform: translate(0, 0) scale(0.5); opacity: 0; }
   20%  { opacity: 1; }
   100% { transform: translate(var(--dx, 0), -50px) scale(1.4); opacity: 0; }
+}
+
+@keyframes station-pulse {
+  0%, 100% { filter: drop-shadow(0 2px 0 rgba(0,0,0,0.3)); }
+  50%      { filter: drop-shadow(0 2px 0 rgba(0,0,0,0.3)) drop-shadow(0 0 8px rgba(255,235,140,0.6)); }
+}
+
+@keyframes pickup-burst {
+  0%   { transform: translate(0, 0) rotate(45deg) scale(0.5); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(var(--dx, 0), var(--dy, 0)) rotate(45deg) scale(1.4); opacity: 0; }
 }
 
 .pixel {

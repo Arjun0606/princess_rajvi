@@ -9,35 +9,33 @@ type Props = {
   pose: Pose;
   drunk: number;
   high: number;
-  // Target horizontal position 0..1 across the playable floor.
-  // When this changes, princess walks to it.
+  // Target position 0..1 in BOTH dimensions on the map.
   targetX: number;
-  // Called when princess arrives at the target.
-  onArrive?: (x: number) => void;
+  targetY: number;
+  onArrive?: (x: number, y: number) => void;
   onTap?: () => void;
   onLongPress?: () => void;
-  // World vertical offset — where the floor is on the bg (vh from bottom).
-  floorVh?: number;
-  // Sprite height (px) — small Stardew-tier sprite.
   spriteHeight?: number;
 };
 
 const LONG_PRESS_MS = 600;
-// How fast princess walks (full screen traversal in ms).
-const WALK_SPEED_MS = 4500;
+// Pixels per second on the map (computed from map size at runtime via the
+// distance between target/current positions). For our 1.6 aspect ratio map
+// at typical phone height, full-diagonal traversal in ~5s feels right.
+const TRAVERSAL_MS = 5500;
 
 export const WalkingPrincess = ({
   pose,
   drunk,
   high,
   targetX,
+  targetY,
   onArrive,
   onTap,
   onLongPress,
-  floorVh = 12,
-  spriteHeight = 110,
+  spriteHeight = 86,
 }: Props) => {
-  const [currentX, setCurrentX] = useState(targetX);
+  const [pos, setPos] = useState({ x: targetX, y: targetY });
   const [facing, setFacing] = useState<'left' | 'right'>('right');
   const [walking, setWalking] = useState(false);
   const [puffs, setPuffs] = useState<Puff[]>([]);
@@ -46,24 +44,24 @@ export const WalkingPrincess = ({
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startedAt = useRef<number>(0);
 
-  // Drive the walk animation when targetX changes.
+  // Walk to a new target whenever it changes.
   useEffect(() => {
-    if (Math.abs(targetX - currentX) < 0.01) {
+    const dx = targetX - pos.x;
+    const dy = targetY - pos.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 0.005) {
       setWalking(false);
       return;
     }
-    const newFacing = targetX > currentX ? 'right' : 'left';
-    setFacing(newFacing);
+    setFacing(dx >= 0 ? 'right' : 'left');
     setWalking(true);
 
-    const distance = Math.abs(targetX - currentX);
-    const duration = Math.max(400, distance * WALK_SPEED_MS);
+    const duration = Math.max(400, distance * TRAVERSAL_MS);
 
-    // Trigger the CSS transition by updating currentX next tick.
-    const nudge = requestAnimationFrame(() => setCurrentX(targetX));
+    const nudge = requestAnimationFrame(() => setPos({ x: targetX, y: targetY }));
     const arriveTimer = setTimeout(() => {
       setWalking(false);
-      arriveCb.current?.(targetX);
+      arriveCb.current?.(targetX, targetY);
     }, duration + 60);
 
     return () => {
@@ -71,32 +69,27 @@ export const WalkingPrincess = ({
       clearTimeout(arriveTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetX]);
+  }, [targetX, targetY]);
 
-  // CSS duration tracks the actual distance to the target so princess always
-  // walks at constant speed regardless of how far she's going.
   const transitionDuration = (() => {
-    const distance = Math.abs(targetX - currentX);
-    return Math.max(400, distance * WALK_SPEED_MS);
+    const dx = targetX - pos.x;
+    const dy = targetY - pos.y;
+    const distance = Math.hypot(dx, dy);
+    return Math.max(400, distance * TRAVERSAL_MS);
   })();
 
-  // While walking, periodically drop a dust puff behind the princess.
+  // Walking dust puffs
   useEffect(() => {
     if (!walking) return;
     const interval = setInterval(() => {
       setPuffs((prev) => [
         ...prev.slice(-6),
-        {
-          id: ++puffId,
-          t: Date.now(),
-          dx: (Math.random() - 0.5) * 6,
-        },
+        { id: ++puffId, t: Date.now(), dx: (Math.random() - 0.5) * 6 },
       ]);
     }, 220);
     return () => clearInterval(interval);
   }, [walking]);
 
-  // GC old puffs.
   useEffect(() => {
     const t = setInterval(() => {
       setPuffs((prev) => prev.filter((p) => Date.now() - p.t < 700));
@@ -114,7 +107,8 @@ export const WalkingPrincess = ({
           longPressTimer.current = null;
         }, LONG_PRESS_MS);
       }}
-      onPointerUp={() => {
+      onPointerUp={(e) => {
+        e.stopPropagation();
         if (longPressTimer.current) {
           clearTimeout(longPressTimer.current);
           longPressTimer.current = null;
@@ -130,21 +124,22 @@ export const WalkingPrincess = ({
       data-drop-target="princess"
       style={{
         position: 'absolute',
-        left: `${currentX * 100}%`,
-        bottom: `${floorVh}vh`,
-        transform: `translateX(-50%) ${facing === 'left' ? 'scaleX(-1)' : ''}`,
-        transition: `left ${transitionDuration}ms linear`,
-        width: spriteHeight * 0.56, // 28/50 ratio
+        left: `${pos.x * 100}%`,
+        top: `${pos.y * 100}%`,
+        // Anchor at character's feet (bottom-center).
+        transform: `translate(-50%, -100%) ${facing === 'left' ? 'scaleX(-1)' : ''}`,
+        transition: `left ${transitionDuration}ms linear, top ${transitionDuration}ms linear`,
+        width: spriteHeight * 0.56,
         height: spriteHeight,
         zIndex: 5,
         cursor: 'pointer',
         WebkitTapHighlightColor: 'transparent',
         animation: walking ? 'walk-bob 0.36s steps(2) infinite' : undefined,
+        filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.3))',
       }}
     >
       <PixelPrincess pose={pose} drunk={drunk} high={high} />
 
-      {/* Walking dust puffs: small chunky circles trail behind her feet */}
       {puffs.map((p) => (
         <div
           key={p.id}

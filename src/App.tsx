@@ -28,41 +28,23 @@ import {
 } from './game/journal';
 import { newlyAvailableCompanion } from './game/companions';
 
-import { Background } from './components/Background';
+import { TopDownMap } from './components/TopDownMap';
+import { Stations, STATIONS, Station, StationKind } from './components/Stations';
 import { WalkingPrincess } from './components/WalkingPrincess';
-import { FloorItem } from './components/FloorItem';
-import { Particles } from './components/Particles';
 import { TapIndicator } from './components/TapIndicator';
 import { Stats } from './components/Stats';
-import { ActionTray } from './components/ActionTray';
 import { SpeechBubble } from './components/SpeechBubble';
 import { Letter } from './components/Letter';
 import { Journal } from './components/Journal';
 import { JournalButton } from './components/JournalButton';
 import { ChatSheet } from './components/ChatSheet';
 import { Settings } from './components/Settings';
-import { FlowerInfo } from './components/FlowerInfo';
 
 const LETTER_THRESHOLD_MIN = 90;
 const SASS_COOLDOWN_MS = 2400;
 const MAX_CHAT_MESSAGES = 80;
-const IDLE_WANDER_MS = 35_000;
-
-type FloorThing = {
-  id: string;
-  kind: 'coke' | 'jager' | 'joint' | 'sunflower';
-  x: number;
-  droppedAt: number;
-  picked: boolean;
-};
-
-const ACTION_TO_FLOOR_KIND: Record<ActionKind, FloorThing['kind'] | null> = {
-  coke: 'coke',
-  jager: 'jager',
-  weed: 'joint',
-  water: 'sunflower',
-  tap: null,
-};
+const STATION_COOLDOWN_MS = 1000 * 60 * 4;
+const PROXIMITY = 0.12; // when princess is within this distance of a station, pickup fires
 
 export default function App() {
   const [state, setState] = useState<GameState>(() => loadState());
@@ -75,18 +57,15 @@ export default function App() {
   const [chatBusy, setChatBusy] = useState(false);
   const [motionGranted, setMotionGranted] = useState(false);
   const [shakeBurst, setShakeBurst] = useState(0);
-  const [tappedFlower, setTappedFlower] = useState<string | null>(null);
   const [booted, setBooted] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // World — princess position and dropped items.
-  const [princessX, setPrincessX] = useState(0.5);
-  const [floorItems, setFloorItems] = useState<FloorThing[]>([]);
-  const pendingPickup = useRef<{ itemId: string; action: ActionKind } | null>(null);
-
-  // Tap indicator + pickup celebrations.
+  // World — princess 2D position on the map, station cooldowns.
+  const [princessTarget, setPrincessTarget] = useState({ x: 0.5, y: 0.55 });
+  const [cooldowns, setCooldowns] = useState<Partial<Record<StationKind, number>>>({});
   const [tapMark, setTapMark] = useState<{ x: number; y: number; nonce: number } | null>(null);
-  const [pickupSparkles, setPickupSparkles] = useState<{ id: number; x: number; bits: number[] }[]>([]);
+  const [pickupSparkles, setPickupSparkles] = useState<{ id: number; x: number; y: number }[]>([]);
+  const pendingStation = useRef<Station | null>(null);
 
   const lastSassAt = useRef(0);
   const initRanRef = useRef(false);
@@ -120,18 +99,20 @@ export default function App() {
     saveState(state);
   }, [state]);
 
-  // Idle wandering — every ~35s, princess strolls to a random floor position
-  // (only when she has no current target/item to pick up and isn't sleeping).
+  // Idle wandering — every ~30s pick a random walkable spot on the map
+  // (avoiding station areas) and stroll there.
   useEffect(() => {
     if (sleeping) return;
     const t = setInterval(() => {
-      if (floorItems.some((i) => !i.picked)) return;
-      const newX = 0.18 + Math.random() * 0.64;
-      setPrincessX(newX);
-    }, IDLE_WANDER_MS);
+      if (pendingStation.current) return;
+      const x = 0.3 + Math.random() * 0.4;
+      const y = 0.4 + Math.random() * 0.3;
+      setPrincessTarget({ x, y });
+    }, 30_000);
     return () => clearInterval(t);
-  }, [sleeping, floorItems]);
+  }, [sleeping]);
 
+  // First-run + return letter + daily letter + companions.
   useEffect(() => {
     if (initRanRef.current) return;
     initRanRef.current = true;
@@ -276,8 +257,6 @@ export default function App() {
     return withEntry;
   }, []);
 
-  // Apply the underlying state mutation (stat changes, milestones) for an
-  // action. Called when princess actually picks up the dropped item.
   const applyAction = useCallback(
     async (kind: ActionKind) => {
       const t = Date.now();
@@ -295,92 +274,51 @@ export default function App() {
     [state, requestSass, handleMilestone],
   );
 
-  // User triggered an action — drop the item on the floor at a random spot,
-  // and walk princess toward it. The actual stat update fires when she
-  // arrives (in onArrive).
-  const doAction = useCallback(
-    (kind: ActionKind) => {
-      const floorKind = ACTION_TO_FLOOR_KIND[kind];
-      if (!floorKind) {
-        // 'tap' has no floor item — apply immediately.
-        applyAction(kind);
+  // Tap empty floor → walk princess to that point.
+  const onMapTap = useCallback((xPct: number, yPct: number) => {
+    pendingStation.current = null;
+    setPrincessTarget({ x: xPct, y: yPct });
+    haptic('light');
+  }, []);
+
+  // Tap a station → walk princess to it; on arrival, pick up.
+  const onStationTap = useCallback(
+    (s: Station) => {
+      const cd = cooldowns[s.id];
+      if (cd && cd > Date.now()) {
+        setSpeech('that one needs a minute. try again later.');
         return;
       }
-      // Drop item somewhere away from princess so she has a real distance to walk.
-      let dropX = 0.18 + Math.random() * 0.64;
-      let attempts = 0;
-      while (Math.abs(dropX - princessX) < 0.18 && attempts < 6) {
-        dropX = 0.18 + Math.random() * 0.64;
-        attempts++;
-      }
-      const id = `fi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      setFloorItems((prev) => [...prev, { id, kind: floorKind, x: dropX, droppedAt: Date.now(), picked: false }]);
-      pendingPickup.current = { itemId: id, action: kind };
-      setPrincessX(dropX);
+      pendingStation.current = s;
+      // Stand a bit below the station so princess sprite doesn't overlap it.
+      setPrincessTarget({ x: s.x, y: s.y + 0.06 });
       haptic('light');
     },
-    [applyAction, princessX],
+    [cooldowns],
   );
 
-  const itemKindToAction = (kind: FloorThing['kind']): ActionKind => {
-    if (kind === 'coke') return 'coke';
-    if (kind === 'jager') return 'jager';
-    if (kind === 'joint') return 'weed';
-    return 'water';
-  };
-
+  // Princess arrived somewhere — if she walked TO a station, fire pickup.
   const onPrincessArrive = useCallback(
-    (x: number) => {
-      // If she arrived at the specifically pending item, prefer that.
-      const pending = pendingPickup.current;
-      let target: FloorThing | undefined;
-      if (pending) {
-        target = floorItems.find((i) => i.id === pending.itemId && !i.picked);
-      }
-      // Otherwise pick up any item close to where she stopped.
-      if (!target) {
-        target = floorItems.find((i) => !i.picked && Math.abs(i.x - x) < 0.08);
-      }
+    (x: number, y: number) => {
+      const target = pendingStation.current;
       if (!target) return;
-      pendingPickup.current = null;
-      const t = target;
-      setFloorItems((prev) =>
-        prev.map((i) => (i.id === t.id ? { ...i, picked: true } : i)),
-      );
-      // Celebration sparkles erupt around princess at pickup.
+      // Verify proximity (defensive — should always be close)
+      const dist = Math.hypot(x - target.x, y - (target.y + 0.06));
+      if (dist > PROXIMITY) return;
+      pendingStation.current = null;
+      setCooldowns((prev) => ({ ...prev, [target.id]: Date.now() + STATION_COOLDOWN_MS }));
+      // Sparkle burst at station
       setPickupSparkles((prev) => [
         ...prev.slice(-3),
-        { id: Date.now(), x: t.x, bits: [...Array(8).keys()] },
+        { id: Date.now(), x: target.x, y: target.y },
       ]);
-      setTimeout(() => {
-        setFloorItems((prev) => prev.filter((i) => i.id !== t.id));
-        applyAction(itemKindToAction(t.kind));
-      }, 350);
       setTimeout(() => {
         setPickupSparkles((prev) => prev.slice(1));
       }, 1100);
+      applyAction(target.action);
     },
-    [applyAction, floorItems],
+    [applyAction],
   );
-
-  const tapItem = useCallback(
-    (itemId: string) => {
-      const item = floorItems.find((i) => i.id === itemId);
-      if (!item || item.picked) return;
-      pendingPickup.current = { itemId: item.id, action: itemKindToAction(item.kind) };
-      setPrincessX(item.x);
-      haptic('light');
-    },
-    [floorItems],
-  );
-
-  // Tap any spot on the playable floor → princess walks there.
-  const onFloorTap = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const x = Math.max(0.08, Math.min(0.92, e.clientX / window.innerWidth));
-    setPrincessX(x);
-    setTapMark({ x: e.clientX, y: e.clientY, nonce: Date.now() });
-    haptic('light');
-  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -457,11 +395,6 @@ export default function App() {
     [tickedState.journal],
   );
 
-  const tappedFlowerData = useMemo(
-    () => tickedState.garden.find((f) => f.id === tappedFlower) ?? null,
-    [tickedState.garden, tappedFlower],
-  );
-
   const daysTogether = Math.floor((Date.now() - tickedState.startedAt) / (24 * 60 * 60 * 1000));
 
   const clearChat = useCallback(() => {
@@ -487,65 +420,46 @@ export default function App() {
     setSpeech(lines[Math.floor(Math.random() * lines.length)]!);
   };
 
+  // Flash tap indicator at last tap location (in screen coordinates)
+  const trackTap: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    setTapMark({ x: e.clientX, y: e.clientY, nonce: Date.now() });
+  };
+
   return (
     <div
+      onPointerUp={trackTap}
       style={{
         position: 'fixed',
         inset: 0,
         overflow: 'hidden',
         filter: stonedFilter,
         transition: 'filter 0.6s ease',
-        background: '#1a1340',
+        background: '#221538',
       }}
     >
-      <Background date={date} />
-      <Particles phase={phase} />
-
-      {/* Tap-to-walk zone covering the playable floor area. Sits below the
-          princess + items so taps on those still hit. */}
-      <div
-        data-drop-target="floor"
-        onPointerUp={onFloorTap}
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: '40%',
-          bottom: 'calc(env(safe-area-inset-bottom, 0) + 90px)',
-          zIndex: 2,
-          cursor: 'pointer',
-          WebkitTapHighlightColor: 'transparent',
-        }}
-      />
-
-      {/* Floor items — princess walks to these and picks them up */}
-      {floorItems.map((it) => (
-        <FloorItem
-          key={it.id}
-          kind={it.kind}
-          x={it.x}
-          picked={it.picked}
-          onTap={() => tapItem(it.id)}
+      <TopDownMap phase={phase} onMapTap={onMapTap}>
+        <Stations cooldowns={cooldowns} onStationTap={onStationTap} />
+        <WalkingPrincess
+          pose={visiblePose}
+          drunk={tickedState.drunk}
+          high={tickedState.high}
+          targetX={princessTarget.x}
+          targetY={princessTarget.y}
+          onArrive={onPrincessArrive}
+          onTap={() => {
+            haptic('light');
+            setChatOpen(true);
+          }}
+          onLongPress={handleLongPress}
         />
-      ))}
-
-      <WalkingPrincess
-        pose={visiblePose}
-        drunk={tickedState.drunk}
-        high={tickedState.high}
-        targetX={princessX}
-        onArrive={onPrincessArrive}
-        onTap={() => {
-          haptic('light');
-          setChatOpen(true);
-        }}
-        onLongPress={handleLongPress}
-      />
+        {pickupSparkles.map((p) => (
+          <PickupSparkles key={p.id} xPct={p.x} yPct={p.y} />
+        ))}
+      </TopDownMap>
 
       <Stats stats={tickedState.stats} />
       <Title flowers={tickedState.flowersAllTime} activity={activityLabel(activity)} />
       <SpeechBubble text={speech} loading={speechLoading} />
-      <ActionTray onAction={doAction} />
       <JournalButton
         count={tickedState.journal.length}
         unread={journalUnread}
@@ -560,18 +474,6 @@ export default function App() {
 
       {tapMark && (
         <TapIndicator x={tapMark.x} y={tapMark.y} nonce={tapMark.nonce} />
-      )}
-
-      {pickupSparkles.map((p) => (
-        <PickupSparkles key={p.id} xPct={p.x} />
-      ))}
-
-      {tappedFlowerData && (
-        <FlowerInfo
-          name={tappedFlowerData.name}
-          plantedAt={tappedFlowerData.plantedAt}
-          onClose={() => setTappedFlower(null)}
-        />
       )}
 
       {letter !== null && <Letter text={letter} onClose={() => setLetter(null)} />}
@@ -601,6 +503,9 @@ export default function App() {
       />
 
       <Splash visible={!booted} />
+
+      {/* Reference STATIONS once so the import isn't dead. */}
+      <span style={{ display: 'none' }}>{STATIONS.length}</span>
     </div>
   );
 }
@@ -707,7 +612,7 @@ const ChatHint = ({ visible }: { visible: boolean }) => {
       className="stardew-box"
       style={{
         position: 'absolute',
-        bottom: 'calc(env(safe-area-inset-bottom, 0) + 110px)',
+        bottom: 'calc(env(safe-area-inset-bottom, 0) + 14px)',
         left: '50%',
         transform: 'translateX(-50%)',
         fontSize: 16,
@@ -718,11 +623,9 @@ const ChatHint = ({ visible }: { visible: boolean }) => {
         pointerEvents: 'none',
         whiteSpace: 'nowrap',
         maxWidth: '88vw',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
       }}
     >
-      tap floor to walk · tap princess to chat
+      tap floor to walk · tap a station to collect · tap princess to chat
     </div>
   );
 };
@@ -765,13 +668,13 @@ const ShakeBurst = ({ nonce }: { nonce: number }) => {
   );
 };
 
-const PickupSparkles = ({ xPct }: { xPct: number }) => (
+const PickupSparkles = ({ xPct, yPct }: { xPct: number; yPct: number }) => (
   <div
     style={{
       position: 'absolute',
       left: `${xPct * 100}%`,
-      bottom: 'calc(12vh + 50px)',
-      transform: 'translateX(-50%)',
+      top: `${yPct * 100}%`,
+      transform: 'translate(-50%, -50%)',
       width: 20,
       height: 20,
       pointerEvents: 'none',
@@ -781,6 +684,7 @@ const PickupSparkles = ({ xPct }: { xPct: number }) => (
     {[...Array(8)].map((_, i) => {
       const angle = (i * 360) / 8;
       const dx = Math.cos((angle * Math.PI) / 180) * 30;
+      const dy = Math.sin((angle * Math.PI) / 180) * 24;
       return (
         <div
           key={i}
@@ -795,7 +699,8 @@ const PickupSparkles = ({ xPct }: { xPct: number }) => (
             boxShadow: '0 0 6px #ffe680',
             // @ts-expect-error css var passthrough
             '--dx': `${dx}px`,
-            animation: 'pickup-sparkle 0.9s ease-out forwards',
+            '--dy': `${dy}px`,
+            animation: 'pickup-burst 0.9s ease-out forwards',
             animationDelay: `${i * 30}ms`,
           }}
         />
