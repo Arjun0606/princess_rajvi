@@ -51,6 +51,8 @@ import {
   shouldStartCraving,
   startCraving,
   tryFulfillCraving,
+  cravingHasExpired,
+  markMiss,
 } from './game/cravings';
 
 const LETTER_THRESHOLD_MIN = 90;
@@ -126,14 +128,28 @@ export default function App() {
     return () => clearInterval(t);
   }, [sleeping]);
 
-  // Cravings game: every 15s, check whether she should start craving
-  // something. When a new craving starts, ask the LLM for a one-line
-  // demand in character so it varies every time.
+  // Cravings game: every 1s, drive the timer. Three responsibilities:
+  //   1. If the current craving expired unfulfilled, mark a miss and
+  //      reset the streak (princess complains).
+  //   2. If there's no craving and enough time has passed since the
+  //      last one ended, start a new one (LLM-driven demand line).
+  //   3. (Visual updates handled by useNow / re-renders.)
   useEffect(() => {
     if (sleeping) return;
     const t = setInterval(async () => {
-      if (shouldStartCraving(state, Date.now())) {
-        const next = startCraving(state, Date.now());
+      const now = Date.now();
+      // 1. Expired? Mark a miss, scold the player.
+      if (cravingHasExpired(state, now)) {
+        const next = markMiss(state, now);
+        setState(next);
+        sfx('tap');
+        haptic('medium');
+        setSpeech("ugh. i waited and waited. NEVER mind.");
+        return;
+      }
+      // 2. Nothing pending? Maybe start one.
+      if (shouldStartCraving(state, now)) {
+        const next = startCraving(state, now);
         setState(next);
         const kind = next.craving.kind;
         if (kind && kind !== 'tap') {
@@ -152,7 +168,7 @@ export default function App() {
           setSpeech(text);
         }
       }
-    }, 15_000);
+    }, 1000);
     return () => clearInterval(t);
   }, [state, sleeping, mood, activity]);
 
@@ -571,6 +587,8 @@ export default function App() {
           craving={tickedState.craving.kind}
           xPct={princessTarget.x}
           yPct={princessTarget.y}
+          expiresAt={tickedState.craving.expiresAt}
+          totalMs={60_000}
         />
         {pickupSparkles.map((p) => (
           <PickupSparkles key={p.id} xPct={p.x} yPct={p.y} />
@@ -581,10 +599,10 @@ export default function App() {
       </TopDownMap>
 
       <Stats stats={tickedState.stats} />
+      <ScoreHUD craving={tickedState.craving} />
       <Title
         flowers={tickedState.flowersAllTime}
         forage={tickedState.forage}
-        cravingsFulfilled={tickedState.craving.fulfilledCount}
         activity={activityLabel(activity)}
       />
       <SpeechBubble text={speech} loading={speechLoading} />
@@ -693,23 +711,21 @@ const SensorCTA = ({ onTap }: { onTap: () => void }) => (
 const Title = ({
   flowers,
   forage,
-  cravingsFulfilled,
   activity,
 }: {
   flowers: number;
   forage: GameState['forage'];
-  cravingsFulfilled: number;
   activity: string;
 }) => (
   <div
     style={{
       position: 'absolute',
-      top: 'calc(env(safe-area-inset-top, 0) + 56px)',
+      top: 'calc(env(safe-area-inset-top, 0) + 102px)',
       left: 0,
       right: 0,
       textAlign: 'center',
       color: '#fff8e0',
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: 'var(--pixel-font)',
       letterSpacing: 0.6,
       textShadow: '1px 1px 0 #4a2710, 0 0 8px rgba(0,0,0,0.45)',
@@ -721,7 +737,7 @@ const Title = ({
     {activity}
     <div
       style={{
-        fontSize: 12,
+        fontSize: 11,
         opacity: 0.92,
         marginTop: 2,
         letterSpacing: 0.4,
@@ -731,7 +747,6 @@ const Title = ({
         flexWrap: 'wrap',
       }}
     >
-      {cravingsFulfilled > 0 && <span>💖 {cravingsFulfilled}</span>}
       <span>🌻 {flowers}</span>
       {forage.petals  > 0 && <span>🌼 {forage.petals}</span>}
       {forage.berries > 0 && <span>🫐 {forage.berries}</span>}
@@ -740,6 +755,48 @@ const Title = ({
     </div>
   </div>
 );
+
+// Visible scoreboard for the cravings game: current streak (with a fire
+// emoji that scales up on hot streaks), total fulfilled, best streak.
+// Lives just below the stats strip so the player always sees their score.
+const ScoreHUD = ({ craving }: { craving: GameState['craving'] }) => {
+  const onFire = craving.streak >= 3;
+  return (
+    <div
+      className="stardew-box"
+      style={{
+        position: 'absolute',
+        top: 'calc(env(safe-area-inset-top, 0) + 54px)',
+        left: 12,
+        padding: '4px 8px 5px',
+        borderRadius: 4,
+        display: 'flex',
+        gap: 10,
+        zIndex: 10,
+        pointerEvents: 'none',
+        fontFamily: 'var(--pixel-font)',
+        fontSize: 12,
+        color: 'var(--stardew-text)',
+        alignItems: 'center',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        <span style={{ fontSize: onFire ? 16 : 13, lineHeight: 1, transition: 'font-size 0.2s ease' }}>
+          {onFire ? '🔥' : '✨'}
+        </span>
+        <span style={{ fontWeight: 700 }}>{craving.streak}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        <span style={{ fontSize: 12 }}>💖</span>
+        <span>{craving.fulfilledCount}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, opacity: 0.7 }}>
+        <span style={{ fontSize: 11 }}>best</span>
+        <span>{craving.bestStreak}</span>
+      </div>
+    </div>
+  );
+};
 
 const Floater = ({ text, xPct, yPct }: { text: string; xPct: number; yPct: number }) => (
   <div

@@ -33,7 +33,14 @@ export const loadState = (): GameState => {
       milestones: parsed.milestones ?? {},
       chats: parsed.chats ?? [],
       forage: { ...fresh.forage, ...(parsed.forage ?? {}) },
-      craving: { ...fresh.craving, ...(parsed.craving ?? {}) },
+      // Cravings reset on reload — no point persisting an already-expired
+      // timer. Keep the all-time stats only.
+      craving: {
+        ...fresh.craving,
+        fulfilledCount: parsed.craving?.fulfilledCount ?? 0,
+        bestStreak: parsed.craving?.bestStreak ?? 0,
+        misses: parsed.craving?.misses ?? 0,
+      },
     };
   } catch {
     return initialState(Date.now());

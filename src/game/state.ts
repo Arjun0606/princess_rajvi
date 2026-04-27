@@ -98,12 +98,17 @@ export type GameState = {
     tufts: number;
   };
 
-  // Cravings game: princess randomly wants something. Player has to walk
-  // her to the matching station to fulfill it.
+  // Cravings game: princess randomly wants something on a TIMER. Player
+  // has to walk her to the matching station before the timer runs out.
+  // Streak tracks consecutive fulfillments; resets on timeout.
   craving: {
     kind: ActionKind | null;
-    since: number;        // when this craving started
-    fulfilledCount: number; // total cravings fulfilled all-time
+    since: number;         // when this craving started
+    expiresAt: number;     // hard deadline; if Date.now() > this, miss
+    fulfilledCount: number;// total cravings fulfilled all-time
+    streak: number;        // current consecutive-fulfillment streak
+    bestStreak: number;    // highest streak ever
+    misses: number;        // total times princess timed out unfulfilled
   };
 };
 
@@ -144,7 +149,15 @@ export const initialState = (now: number): GameState => ({
   milestones: {},
   chats: [],
   forage: { petals: 0, berries: 0, pebbles: 0, tufts: 0 },
-  craving: { kind: null, since: 0, fulfilledCount: 0 },
+  craving: {
+    kind: null,
+    since: 0,
+    expiresAt: 0,
+    fulfilledCount: 0,
+    streak: 0,
+    bestStreak: 0,
+    misses: 0,
+  },
 });
 
 export const clamp = (n: number, lo = MIN_STAT, hi = MAX_STAT) =>
