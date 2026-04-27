@@ -114,19 +114,19 @@ const StationSprite = ({
   // contain so the sprite scales cleanly to the station's box. Each PNG
   // already has a soft circular vignette / shaped background so they
   // blend into the world even though the source canvas is square.
-  const src = `/art/item-${kind}.png?v=2`;
+  const src = `/art/item-${kind}.png?v=3`;
   return (
     <>
       <img
         src={src}
         alt={kind}
+        className="pixel-art"
         style={{
           width: '100%',
           height: '100%',
           objectFit: 'contain',
-          imageRendering: 'pixelated',
-          // Tiny pop on hover/load to make the sprite breathe
-          animation: 'float 3s ease-in-out infinite',
+          // No transform-based animation — iOS Safari smooths transformed
+          // pixel-art images. Crispness wins over a 3s bob.
         }}
       />
       {kind === 'sunflower' && flowersAllTime > 0 && (

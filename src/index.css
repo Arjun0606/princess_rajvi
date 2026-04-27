@@ -62,9 +62,28 @@ body {
   background: #1a1340;
 }
 
+/* Pixel-perfect rendering across browsers, especially iOS Safari which
+ * needs the full ladder of vendor prefixes + a final nearest-neighbour
+ * fallback for older iOS versions where `pixelated` is ignored. */
 img, svg {
-  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -o-crisp-edges;
   image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Force pixel-art images onto their own GPU layer with explicit no-smoothing
+ * hints so transforms (animation, scaling, translation) don't trigger
+ * Safari's anti-aliasing pass. */
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: -webkit-crisp-edges;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
 }
 
 @keyframes sway {
