@@ -38,7 +38,7 @@ const SPRITE = (description) =>
   `${STYLE_PREAMBLE}\n\nSPRITE: ${description}. Full body, transparent background, character isolated and centered. Render as a true pixel art sprite with sharp edges and no anti-aliasing. The character takes up roughly 80% of the frame height.`;
 
 const ITEM = (description) =>
-  `${STYLE_PREAMBLE.split('\n')[0]}\n\nITEM ICON: ${description}. Single object, transparent background. Pixel art inventory icon, dark outline, sharp pixels, no anti-aliasing. Centered in frame.`;
+  `Mobile game inventory icon: a single pixel art sprite of ${description}, used in a finished shipping mobile game.\n\nThe image is a finished icon on a solid uniform pastel-purple background (#cbb6e8). The sprite is large and centered, dominating the frame. Crisp sharp 16-bit pixels, dark outline, limited palette of 8-16 cozy colors, Stardew Valley style. No anti-aliasing, no blur.\n\nThe finished icon contains exactly one thing: the sprite itself, alone, on the uniform pastel field. Nothing else fills the canvas — the background is empty pastel from edge to edge except where the sprite sits. The image must look like a polished asset already shipped in an app store game, not a work-in-progress reference sheet.`;
 
 const UI = (description) =>
   `${STYLE_PREAMBLE.split('\n')[0]}\n\nUI ELEMENT: ${description}. Transparent background. Pixel art, dark outline, sharp pixels.`;
