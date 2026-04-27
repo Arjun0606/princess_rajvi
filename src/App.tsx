@@ -39,6 +39,8 @@ import { Journal } from './components/Journal';
 import { JournalButton } from './components/JournalButton';
 import { ChatSheet } from './components/ChatSheet';
 import { Settings } from './components/Settings';
+import { AmbientLife } from './components/AmbientLife';
+import { MapCompanions } from './components/MapCompanions';
 
 const LETTER_THRESHOLD_MIN = 90;
 const SASS_COOLDOWN_MS = 2400;
@@ -438,7 +440,13 @@ export default function App() {
       }}
     >
       <TopDownMap phase={phase} onMapTap={onMapTap}>
-        <Stations cooldowns={cooldowns} onStationTap={onStationTap} />
+        <Stations
+          cooldowns={cooldowns}
+          onStationTap={onStationTap}
+          flowersAllTime={tickedState.flowersAllTime}
+        />
+        <AmbientLife phase={phase} />
+        <MapCompanions state={tickedState} />
         <WalkingPrincess
           pose={visiblePose}
           drunk={tickedState.drunk}

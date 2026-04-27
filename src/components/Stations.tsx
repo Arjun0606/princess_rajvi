@@ -16,7 +16,7 @@ export type Station = {
 
 export const STATIONS: Station[] = [
   // Top-left: sunflower garden plot (water/water → flower)
-  { id: 'sunflower', x: 0.18, y: 0.22, width: 60, height: 70, label: 'sunflower garden', action: 'water' },
+  { id: 'sunflower', x: 0.18, y: 0.22, width: 80, height: 90, label: 'sunflower garden', action: 'water' },
   // Top-right: fridge for diet coke
   { id: 'coke',      x: 0.78, y: 0.22, width: 50, height: 70, label: 'mini fridge',     action: 'coke' },
   // Bottom-left: bar / table with jäger bottle
@@ -28,9 +28,10 @@ export const STATIONS: Station[] = [
 type Props = {
   cooldowns: Partial<Record<StationKind, number>>;
   onStationTap: (s: Station) => void;
+  flowersAllTime: number;
 };
 
-export const Stations = ({ cooldowns, onStationTap }: Props) => (
+export const Stations = ({ cooldowns, onStationTap, flowersAllTime }: Props) => (
   <>
     {STATIONS.map((s) => {
       const cooldownLeft = cooldowns[s.id] ? Math.max(0, cooldowns[s.id]! - Date.now()) : 0;
@@ -54,7 +55,7 @@ export const Stations = ({ cooldowns, onStationTap }: Props) => (
             animation: !onCooldown ? 'station-pulse 2.4s ease-in-out infinite' : undefined,
           }}
         >
-          <StationSprite kind={s.id} />
+          <StationSprite kind={s.id} flowersAllTime={flowersAllTime} />
           {/* Label tag below */}
           <div
             style={{
@@ -80,37 +81,109 @@ export const Stations = ({ cooldowns, onStationTap }: Props) => (
   </>
 );
 
-const StationSprite = ({ kind }: { kind: StationKind }) => {
+const StationSprite = ({
+  kind,
+  flowersAllTime,
+}: {
+  kind: StationKind;
+  flowersAllTime: number;
+}) => {
   switch (kind) {
-    case 'sunflower': return <SunflowerPlot />;
+    case 'sunflower': return <SunflowerPlot flowersAllTime={flowersAllTime} />;
     case 'coke':      return <Fridge />;
     case 'jager':     return <CocktailTable />;
     case 'joint':     return <Cushion />;
   }
 };
 
-const SunflowerPlot = () => (
-  <svg viewBox="0 0 30 35" width="100%" height="100%" shapeRendering="crispEdges">
-    {/* Soil */}
-    <rect x="0" y="20" width="30" height="14" fill="#5b3826" />
-    <rect x="0" y="20" width="30" height="2" fill="#3a2010" />
-    <rect x="0" y="32" width="30" height="2" fill="#2a1408" />
-    {/* Sunflower 1 */}
-    <rect x="6" y="6" width="6" height="6" fill="#ffd84d" />
-    <rect x="4" y="8" width="10" height="2" fill="#ffd84d" />
-    <rect x="8" y="8" width="2" height="2" fill="#3a2010" />
-    <rect x="8" y="12" width="2" height="9" fill="#3a8a3a" />
-    {/* Sunflower 2 */}
-    <rect x="18" y="3" width="6" height="6" fill="#ffd84d" />
-    <rect x="16" y="5" width="10" height="2" fill="#ffd84d" />
-    <rect x="20" y="5" width="2" height="2" fill="#3a2010" />
-    <rect x="20" y="9" width="2" height="12" fill="#3a8a3a" />
-    {/* Sunflower 3 small */}
-    <rect x="12" y="11" width="4" height="4" fill="#e58a00" />
-    <rect x="13" y="12" width="2" height="2" fill="#3a2010" />
-    <rect x="13" y="15" width="2" height="6" fill="#3a8a3a" />
-  </svg>
-);
+// Garden plot that visibly fills up the more flowers the player has grown.
+// Slot positions are stable so each new bloom appears in the next empty
+// patch of soil — feels like progression, not a random redraw.
+const FLOWER_SLOTS: { x: number; y: number; size: 'L' | 'M' | 'S'; bud?: boolean }[] = [
+  { x: 4,  y: 4,  size: 'L' },
+  { x: 24, y: 8,  size: 'L' },
+  { x: 14, y: 14, size: 'M' },
+  { x: 36, y: 4,  size: 'M' },
+  { x: 44, y: 12, size: 'L' },
+  { x: 6,  y: 22, size: 'M' },
+  { x: 28, y: 22, size: 'S' },
+  { x: 40, y: 24, size: 'M' },
+  { x: 18, y: 28, size: 'S', bud: true },
+  { x: 50, y: 28, size: 'S', bud: true },
+];
+
+const SunflowerPlot = ({ flowersAllTime }: { flowersAllTime: number }) => {
+  const visible = Math.max(2, Math.min(FLOWER_SLOTS.length, flowersAllTime));
+  const flowers = FLOWER_SLOTS.slice(0, visible);
+  return (
+    <svg viewBox="0 0 60 50" width="100%" height="100%" shapeRendering="crispEdges">
+      {/* Soil bed — wider so it can hold more flowers */}
+      <rect x="0" y="34" width="60" height="14" fill="#5b3826" />
+      <rect x="0" y="34" width="60" height="2" fill="#3a2010" />
+      <rect x="0" y="46" width="60" height="2" fill="#2a1408" />
+      {/* Soil flecks */}
+      <rect x="6"  y="40" width="2" height="2" fill="#3a2010" />
+      <rect x="22" y="42" width="2" height="2" fill="#3a2010" />
+      <rect x="42" y="40" width="2" height="2" fill="#3a2010" />
+      <rect x="52" y="42" width="2" height="2" fill="#3a2010" />
+      {flowers.map((f, i) => (
+        <Sunflower key={i} x={f.x} y={f.y} size={f.size} bud={f.bud} />
+      ))}
+    </svg>
+  );
+};
+
+const Sunflower = ({
+  x,
+  y,
+  size,
+  bud,
+}: {
+  x: number;
+  y: number;
+  size: 'L' | 'M' | 'S';
+  bud?: boolean;
+}) => {
+  if (bud) {
+    // Tiny green sprout, not yet bloomed.
+    return (
+      <g>
+        <rect x={x + 2} y={y + 4} width="2" height="4" fill="#3a8a3a" />
+        <rect x={x}     y={y + 4} width="2" height="2" fill="#5fc55f" />
+        <rect x={x + 4} y={y + 4} width="2" height="2" fill="#5fc55f" />
+      </g>
+    );
+  }
+  if (size === 'S') {
+    return (
+      <g>
+        <rect x={x + 1} y={y}     width="4" height="4" fill="#e58a00" />
+        <rect x={x + 2} y={y + 1} width="2" height="2" fill="#3a2010" />
+        <rect x={x + 2} y={y + 4} width="2" height="6" fill="#3a8a3a" />
+      </g>
+    );
+  }
+  if (size === 'M') {
+    return (
+      <g>
+        <rect x={x + 2} y={y}     width="6" height="6" fill="#ffd84d" />
+        <rect x={x}     y={y + 2} width="10" height="2" fill="#ffd84d" />
+        <rect x={x + 4} y={y + 2} width="2" height="2" fill="#3a2010" />
+        <rect x={x + 4} y={y + 6} width="2" height="8" fill="#3a8a3a" />
+      </g>
+    );
+  }
+  return (
+    <g>
+      <rect x={x + 1} y={y}     width="8" height="2" fill="#ffd84d" />
+      <rect x={x}     y={y + 1} width="10" height="6" fill="#ffd84d" />
+      <rect x={x + 1} y={y + 7} width="8" height="2" fill="#ffd84d" />
+      <rect x={x + 4} y={y + 3} width="2" height="2" fill="#3a2010" />
+      <rect x={x + 4} y={y + 9} width="2" height="9" fill="#3a8a3a" />
+      <rect x={x + 2} y={y + 12} width="2" height="2" fill="#5fc55f" />
+    </g>
+  );
+};
 
 const Fridge = () => (
   <svg viewBox="0 0 25 35" width="100%" height="100%" shapeRendering="crispEdges">
