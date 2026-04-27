@@ -2,6 +2,49 @@
 
 :root {
   --pixel: 4px;
+  --stardew-paper: #fff5dc;
+  --stardew-paper-shade: #e8d8a8;
+  --stardew-border-light: #c89a5e;
+  --stardew-border-mid: #8a5230;
+  --stardew-border-dark: #4a2710;
+  --stardew-text: #4a2710;
+  --stardew-text-soft: #6b3a20;
+  --pixel-font: 'VT323', 'Press Start 2P', ui-monospace, monospace;
+}
+
+.stardew-box {
+  background: var(--stardew-paper);
+  color: var(--stardew-text);
+  border: 4px solid var(--stardew-border-mid);
+  box-shadow:
+    0 0 0 2px var(--stardew-border-dark),
+    inset 0 0 0 2px var(--stardew-border-light),
+    inset 0 0 0 4px var(--stardew-paper-shade),
+    0 8px 0 0 rgba(74, 39, 16, 0.25);
+  image-rendering: pixelated;
+  font-family: var(--pixel-font);
+}
+
+.stardew-button {
+  background: var(--stardew-paper);
+  color: var(--stardew-text);
+  border: 3px solid var(--stardew-border-mid);
+  box-shadow:
+    0 0 0 1px var(--stardew-border-dark),
+    inset 0 0 0 2px var(--stardew-border-light),
+    inset 0 0 0 4px var(--stardew-paper-shade),
+    0 4px 0 0 rgba(74, 39, 16, 0.35);
+  image-rendering: pixelated;
+  font-family: var(--pixel-font);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+}
+.stardew-button:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 0 0 1px var(--stardew-border-dark),
+    inset 0 0 0 2px var(--stardew-border-light),
+    inset 0 0 0 4px var(--stardew-paper-shade),
+    0 2px 0 0 rgba(74, 39, 16, 0.35);
 }
 
 html, body, #root {
@@ -123,6 +166,11 @@ img, svg {
   60%  { transform: translateX(-50%) translateY(0)      scale(1.1); opacity: 1; }
   80%  { transform: translateX(-50%) translateY(-6px)   scale(1.0); }
   100% { transform: translateX(-50%) translateY(0)      scale(1); opacity: 1; }
+}
+
+@keyframes item-glint {
+  0%, 100% { filter: brightness(1) drop-shadow(0 2px 0 rgba(0,0,0,0.25)); }
+  50%      { filter: brightness(1.18) drop-shadow(0 0 6px rgba(255,255,200,0.6)); }
 }
 
 .pixel {

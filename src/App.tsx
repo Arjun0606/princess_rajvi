@@ -317,23 +317,56 @@ export default function App() {
     [applyAction, princessX],
   );
 
+  const itemKindToAction = (kind: FloorThing['kind']): ActionKind => {
+    if (kind === 'coke') return 'coke';
+    if (kind === 'jager') return 'jager';
+    if (kind === 'joint') return 'weed';
+    return 'water';
+  };
+
   const onPrincessArrive = useCallback(
-    (_x: number) => {
+    (x: number) => {
+      // If she arrived at the specifically pending item, prefer that.
       const pending = pendingPickup.current;
-      if (!pending) return;
+      let target: FloorThing | undefined;
+      if (pending) {
+        target = floorItems.find((i) => i.id === pending.itemId && !i.picked);
+      }
+      // Otherwise pick up any item close to where she stopped.
+      if (!target) {
+        target = floorItems.find((i) => !i.picked && Math.abs(i.x - x) < 0.08);
+      }
+      if (!target) return;
       pendingPickup.current = null;
-      // Mark item as picked (animates out).
+      const t = target;
       setFloorItems((prev) =>
-        prev.map((i) => (i.id === pending.itemId ? { ...i, picked: true } : i)),
+        prev.map((i) => (i.id === t.id ? { ...i, picked: true } : i)),
       );
-      // After the pickup animation, remove and apply effect.
       setTimeout(() => {
-        setFloorItems((prev) => prev.filter((i) => i.id !== pending.itemId));
-        applyAction(pending.action);
+        setFloorItems((prev) => prev.filter((i) => i.id !== t.id));
+        applyAction(itemKindToAction(t.kind));
       }, 350);
     },
-    [applyAction],
+    [applyAction, floorItems],
   );
+
+  const tapItem = useCallback(
+    (itemId: string) => {
+      const item = floorItems.find((i) => i.id === itemId);
+      if (!item || item.picked) return;
+      pendingPickup.current = { itemId: item.id, action: itemKindToAction(item.kind) };
+      setPrincessX(item.x);
+      haptic('light');
+    },
+    [floorItems],
+  );
+
+  // Tap any spot on the playable floor → princess walks there.
+  const onFloorTap = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const x = Math.max(0.08, Math.min(0.92, e.clientX / window.innerWidth));
+    setPrincessX(x);
+    haptic('light');
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -454,9 +487,32 @@ export default function App() {
       <Background date={date} />
       <Particles phase={phase} />
 
+      {/* Tap-to-walk zone covering the playable floor area. Sits below the
+          princess + items so taps on those still hit. */}
+      <div
+        data-drop-target="floor"
+        onPointerUp={onFloorTap}
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: '40%',
+          bottom: 'calc(env(safe-area-inset-bottom, 0) + 90px)',
+          zIndex: 2,
+          cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      />
+
       {/* Floor items — princess walks to these and picks them up */}
       {floorItems.map((it) => (
-        <FloorItem key={it.id} kind={it.kind} x={it.x} picked={it.picked} />
+        <FloorItem
+          key={it.id}
+          kind={it.kind}
+          x={it.x}
+          picked={it.picked}
+          onTap={() => tapItem(it.id)}
+        />
       ))}
 
       <WalkingPrincess
@@ -596,26 +652,26 @@ const Title = ({
       left: 0,
       right: 0,
       textAlign: 'center',
-      color: '#fff',
-      fontSize: 11,
-      fontWeight: 800,
-      letterSpacing: 2.5,
-      textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+      color: '#fff8e0',
+      fontSize: 18,
+      fontFamily: 'var(--pixel-font)',
+      letterSpacing: 1,
+      textShadow: '2px 2px 0 #4a2710, 0 0 12px rgba(0,0,0,0.45)',
       zIndex: 5,
       pointerEvents: 'none',
+      lineHeight: 1.05,
     }}
   >
-    PRINCESS RAJVI · {activity.toUpperCase()}
+    Princess Rajvi · {activity}
     <div
       style={{
-        fontSize: 9,
-        fontWeight: 600,
-        letterSpacing: 1.4,
-        opacity: 0.85,
-        marginTop: 3,
+        fontSize: 14,
+        opacity: 0.92,
+        marginTop: 2,
+        letterSpacing: 0.5,
       }}
     >
-      🌻 {flowers} sunflowers in the garden
+      🌻 {flowers} sunflowers
     </div>
   </div>
 );
@@ -629,25 +685,25 @@ const ChatHint = ({ visible }: { visible: boolean }) => {
   if (!visible || !shown) return null;
   return (
     <div
+      className="stardew-box"
       style={{
         position: 'absolute',
         bottom: 'calc(env(safe-area-inset-bottom, 0) + 110px)',
         left: '50%',
         transform: 'translateX(-50%)',
-        background: 'rgba(0,0,0,0.55)',
-        color: '#fff',
-        fontSize: 11,
-        padding: '6px 14px',
-        borderRadius: 14,
-        letterSpacing: 0.8,
+        fontSize: 16,
+        padding: '5px 12px 6px',
+        borderRadius: 4,
         animation: 'pop 0.4s ease',
         zIndex: 9,
         pointerEvents: 'none',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        whiteSpace: 'nowrap',
+        maxWidth: '88vw',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
       }}
     >
-      tap princess to chat · drop a gift, she'll come pick it up
+      tap floor to walk · tap princess to chat
     </div>
   );
 };

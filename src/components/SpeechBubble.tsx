@@ -39,59 +39,58 @@ export const SpeechBubble = ({ text, loading }: Props) => {
 
 const Bubble = ({ children }: { children: React.ReactNode }) => (
   <div
+    className="stardew-box"
     style={{
       position: 'absolute',
       left: '50%',
-      // Sits below the title and above princess head. Top-positioned so it
-      // stays visible no matter how short the viewport is.
       top: 'calc(env(safe-area-inset-top, 0) + 130px)',
       transform: 'translateX(-50%)',
-      maxWidth: 'min(82vw, 320px)',
-      background: 'rgba(255, 248, 240, 0.96)',
-      color: '#3a1a30',
-      padding: '12px 16px',
-      borderRadius: 20,
-      fontSize: 14.5,
-      fontWeight: 600,
-      lineHeight: 1.4,
+      maxWidth: 'min(88vw, 360px)',
+      padding: '14px 18px 16px',
+      borderRadius: 4,
+      fontSize: 22,
+      lineHeight: 1.05,
+      letterSpacing: 0.5,
       textAlign: 'center',
-      boxShadow: '0 10px 28px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.6)',
-      animation: 'pop 0.3s cubic-bezier(.2,.7,.2,1)',
+      animation: 'pop 0.25s cubic-bezier(.2,.7,.2,1)',
       zIndex: 12,
-      fontFamily: 'ui-rounded, system-ui, -apple-system, sans-serif',
     }}
   >
     {children}
+    {/* Bubble tail pointing down at princess */}
     <div
       style={{
         position: 'absolute',
         left: '50%',
-        bottom: -10,
+        bottom: -14,
         transform: 'translateX(-50%)',
         width: 0,
         height: 0,
         borderLeft: '10px solid transparent',
         borderRight: '10px solid transparent',
-        borderTop: '12px solid rgba(255, 248, 240, 0.96)',
+        borderTop: '14px solid #8a5230',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        left: '50%',
+        bottom: -8,
+        transform: 'translateX(-50%)',
+        width: 0,
+        height: 0,
+        borderLeft: '6px solid transparent',
+        borderRight: '6px solid transparent',
+        borderTop: '8px solid #fff5dc',
       }}
     />
   </div>
 );
 
 const Dots = () => (
-  <span style={{ display: 'inline-flex', gap: 4 }}>
-    {[0, 1, 2].map((i) => (
-      <span
-        key={i}
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: '50%',
-          background: '#ff5d8f',
-          animation: `float 1s ease-in-out infinite`,
-          animationDelay: `${i * 0.15}s`,
-        }}
-      />
-    ))}
+  <span style={{ display: 'inline-flex', gap: 6, fontSize: 26, letterSpacing: 4 }}>
+    <span style={{ animation: 'float 1s ease-in-out infinite' }}>.</span>
+    <span style={{ animation: 'float 1s ease-in-out infinite', animationDelay: '0.15s' }}>.</span>
+    <span style={{ animation: 'float 1s ease-in-out infinite', animationDelay: '0.3s' }}>.</span>
   </span>
 );
