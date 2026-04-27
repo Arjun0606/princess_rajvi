@@ -14,18 +14,19 @@ export type Station = {
   action: ActionKind;
 };
 
-// y values are placement of station's BOTTOM edge in 0..1 map space.
-// Floor runs ~y=0.22 (just below back wall) to y=0.91 (just above front rail).
-// Stations are anchored bottom-center so y is where they "stand" on the floor.
+// y values are the placement of each station's BOTTOM edge in 0..1 map
+// coordinates. Stations are anchored bottom-center, so (x, y) is where
+// the station "stands" on the grass — the path branch ends right at that
+// point. Princess walks up the path and arrives at the station base.
 export const STATIONS: Station[] = [
-  // Back-left: sunflower garden plot — sits against the back wall
-  { id: 'sunflower', x: 0.16, y: 0.40, width: 86, height: 96, label: 'sunflower garden', action: 'water' },
-  // Back-right: mini-fridge with diet coke
-  { id: 'coke',      x: 0.84, y: 0.40, width: 56, height: 86, label: 'mini fridge',     action: 'coke' },
-  // Front-left: bar / cocktail table with jäger bottle
-  { id: 'jager',     x: 0.18, y: 0.78, width: 78, height: 70, label: 'cocktail table',  action: 'jager' },
-  // Front-right: floor cushion with joint
-  { id: 'joint',     x: 0.82, y: 0.80, width: 78, height: 64, label: 'cushion',         action: 'weed' },
+  // Top-left: sunflower garden bed
+  { id: 'sunflower', x: 0.18, y: 0.46, width: 90, height: 96, label: 'sunflower garden', action: 'water' },
+  // Top-right: mini-fridge with diet coke
+  { id: 'coke',      x: 0.82, y: 0.46, width: 60, height: 86, label: 'mini fridge',     action: 'coke' },
+  // Bottom-left: cocktail table with jäger
+  { id: 'jager',     x: 0.20, y: 0.86, width: 82, height: 72, label: 'cocktail table',  action: 'jager' },
+  // Bottom-right: floor cushion with joint
+  { id: 'joint',     x: 0.80, y: 0.86, width: 82, height: 66, label: 'cushion',         action: 'weed' },
 ];
 
 type Props = {
