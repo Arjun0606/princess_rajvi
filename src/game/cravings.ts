@@ -19,10 +19,10 @@ const CRAVING_KINDS: Exclude<ActionKind, 'tap'>[] = ['coke', 'jager', 'weed', 'w
 // Timer mechanics: each craving lives for CRAVING_DURATION_MS. After a
 // fulfillment, the next craving spawns FAST so the loop stays tight.
 // After a miss, the cooldown is longer so the player gets a breather.
-const CRAVING_DURATION_MS = 60 * 1000;       // 60s per craving
+const CRAVING_DURATION_MS = 25 * 1000;       // 25s per craving — tight
 const POST_FULFILL_GAP_MIN_MS = 5 * 1000;    // 5s after a hit
 const POST_FULFILL_GAP_MAX_MS = 10 * 1000;   // up to 10s
-const POST_MISS_GAP_MS        = 25 * 1000;   // 25s after a miss
+const POST_MISS_GAP_MS        = 20 * 1000;   // 20s after a miss
 
 export const cravingDurationMs = () => CRAVING_DURATION_MS;
 

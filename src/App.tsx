@@ -496,11 +496,12 @@ export default function App() {
   }, []);
   useShake(motionGranted ? onShake : () => {});
 
+  // Subtle "stoned" tint after a joint — saturation + hue shift only.
+  // We used to apply a blur here too but it made the whole game look
+  // out of focus, which was just frustrating, not vibey. Killed.
   const stonedFilter =
     tickedState.high > 0.5
-      ? `saturate(${1 + tickedState.high * 0.18}) hue-rotate(${tickedState.high * 4}deg) blur(${
-          Math.min(tickedState.high * 0.4, 1.0)
-        }px)`
+      ? `saturate(${1 + tickedState.high * 0.14}) hue-rotate(${tickedState.high * 3}deg)`
       : undefined;
 
   const openJournal = () => {
@@ -588,7 +589,7 @@ export default function App() {
           xPct={princessTarget.x}
           yPct={princessTarget.y}
           expiresAt={tickedState.craving.expiresAt}
-          totalMs={60_000}
+          totalMs={25_000}
         />
         {pickupSparkles.map((p) => (
           <PickupSparkles key={p.id} xPct={p.x} yPct={p.y} />

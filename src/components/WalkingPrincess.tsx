@@ -3,6 +3,15 @@ import { Pose } from '../game/state';
 import { sfx } from '../game/audio';
 import { PixelPrincess } from './PixelPrincess';
 
+const POSE_TO_FILE: Record<Pose, string> = {
+  default:   '/art/princess-default.png?v=2',
+  coke:      '/art/princess-coke.png?v=2',
+  jager:     '/art/princess-jager.png?v=2',
+  joint:     '/art/princess-joint.png?v=2',
+  sunflower: '/art/princess-sunflower.png?v=2',
+  sleep:     '/art/princess-sleep.png?v=2',
+};
+
 type Puff = { id: number; t: number; dx: number };
 let puffId = 0;
 
@@ -34,7 +43,7 @@ export const WalkingPrincess = ({
   onArrive,
   onTap,
   onLongPress,
-  spriteHeight = 48,
+  spriteHeight = 80,
 }: Props) => {
   const [pos, setPos] = useState({ x: targetX, y: targetY });
   const [facing, setFacing] = useState<'left' | 'right'>('right');
@@ -131,13 +140,15 @@ export const WalkingPrincess = ({
         // Anchor at character's feet (bottom-center).
         transform: `translate(-50%, -100%) ${facing === 'left' ? 'scaleX(-1)' : ''}`,
         transition: `left ${transitionDuration}ms linear, top ${transitionDuration}ms linear`,
-        width: spriteHeight * 0.56,
+        // Square container so the PNG sprite (1:1) fills naturally. The
+        // procedural PixelPrincess fallback uses its own internal aspect
+        // and isn't stretched by this.
+        width: spriteHeight,
         height: spriteHeight,
         zIndex: 5,
         cursor: 'pointer',
         WebkitTapHighlightColor: 'transparent',
         animation: walking ? 'walk-bob 0.36s steps(2) infinite' : undefined,
-        filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.3))',
       }}
     >
       {/* Ground shadow — soft ellipse at her feet */}
@@ -156,8 +167,13 @@ export const WalkingPrincess = ({
           zIndex: -1,
         }}
       />
+      {/* Procedural princess as a fallback layer beneath. The real PNG
+          sprite stacks on top via <img>; if it fails to load (404 for a
+          pose we haven't generated yet), the procedural one shows. */}
       <PixelPrincess pose={pose} drunk={drunk} high={high} />
+      <PrincessSpriteOverlay pose={pose} />
 
+      {/* Render dust puffs at the feet */}
       {puffs.map((p) => (
         <div
           key={p.id}
@@ -178,5 +194,33 @@ export const WalkingPrincess = ({
         />
       ))}
     </div>
+  );
+};
+
+// PNG sprite overlay. Tries to load the pose-specific image; if it 404s
+// (we haven't generated that pose yet) we hide it and let the procedural
+// PixelPrincess underneath show through.
+const PrincessSpriteOverlay = ({ pose }: { pose: Pose }) => {
+  const [ok, setOk] = useState(true);
+  useEffect(() => setOk(true), [pose]);
+  if (!ok) return null;
+  return (
+    <img
+      src={POSE_TO_FILE[pose]}
+      alt=""
+      className="pixel-art"
+      onError={() => setOk(false)}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'contain',
+        objectPosition: 'center bottom',
+        pointerEvents: 'none',
+        // Above procedural princess but below dust puffs.
+        zIndex: 1,
+      }}
+    />
   );
 };
