@@ -8,10 +8,10 @@ type Props = {
 };
 
 const KIND_ICON: Record<JournalEntry['kind'], string> = {
-  daily: '☀️',
-  return: '💌',
-  action: '✨',
-  milestone: '👑',
+  daily: '☀',
+  return: '✉',
+  action: '✦',
+  milestone: '★',
   firstrun: '🌻',
 };
 
@@ -20,7 +20,7 @@ const KIND_LABEL: Record<JournalEntry['kind'], string> = {
   return: 'a letter on your return',
   action: 'a note',
   milestone: 'milestone',
-  firstrun: 'the very first letter',
+  firstrun: 'the first letter',
 };
 
 const formatDate = (ts: number) => {
@@ -53,34 +53,38 @@ export const Journal = ({ entries, startedAt, onClose }: Props) => {
         position: 'fixed',
         inset: 0,
         background: 'rgba(40, 20, 50, 0.65)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         zIndex: 50,
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',
-        padding: '0 0 0 0',
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="stardew-box"
         style={{
           width: '100%',
           maxWidth: 480,
           maxHeight: '88vh',
-          background:
-            'linear-gradient(180deg, #fff5e8 0%, #ffe3d0 100%)',
-          borderRadius: '24px 24px 0 0',
-          padding: '20px 22px 28px',
-          color: '#3a1a1a',
-          boxShadow: '0 -10px 40px rgba(0,0,0,0.4)',
+          borderRadius: 0,
+          padding: '20px 18px 24px',
           transform: mounted ? 'translateY(0)' : 'translateY(100%)',
           transition: 'transform 0.45s cubic-bezier(.2,.7,.2,1)',
           overflowY: 'auto',
-          fontFamily: 'Georgia, "New York", serif',
+          fontFamily: 'var(--pixel-font)',
         }}
       >
-        <Handle />
+        <div
+          style={{
+            width: 40,
+            height: 4,
+            background: 'var(--stardew-border-mid)',
+            borderRadius: 2,
+            margin: '0 auto 12px',
+          }}
+        />
         <div
           style={{
             display: 'flex',
@@ -89,25 +93,39 @@ export const Journal = ({ entries, startedAt, onClose }: Props) => {
             marginBottom: 4,
           }}
         >
-          <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: 0.5 }}>
+          <div
+            style={{
+              fontSize: 28,
+              letterSpacing: 1,
+              color: 'var(--stardew-text)',
+              lineHeight: 1,
+            }}
+          >
             the royal diary
           </div>
           <button
             onClick={onClose}
+            className="stardew-button"
             style={{
-              background: 'transparent',
-              border: 'none',
-              fontSize: 22,
-              color: '#3a1a1a',
-              cursor: 'pointer',
-              padding: 4,
+              width: 32,
+              height: 32,
+              padding: 0,
+              fontSize: 20,
+              lineHeight: 1,
             }}
           >
             ×
           </button>
         </div>
-        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 18 }}>
-          day {days + 1} of friendship · {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+        <div
+          style={{
+            fontSize: 14,
+            color: 'var(--stardew-text-soft)',
+            marginBottom: 16,
+            letterSpacing: 0.5,
+          }}
+        >
+          day {days + 1} · {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
         </div>
 
         {entries.length === 0 ? (
@@ -119,10 +137,11 @@ export const Journal = ({ entries, startedAt, onClose }: Props) => {
         <div
           style={{
             textAlign: 'center',
-            marginTop: 22,
-            fontStyle: 'italic',
-            fontSize: 12,
-            opacity: 0.45,
+            marginTop: 18,
+            fontSize: 14,
+            color: 'var(--stardew-text-soft)',
+            opacity: 0.7,
+            letterSpacing: 0.5,
           }}
         >
           long may she reign 🌻
@@ -132,28 +151,18 @@ export const Journal = ({ entries, startedAt, onClose }: Props) => {
   );
 };
 
-const Handle = () => (
-  <div
-    style={{
-      width: 40,
-      height: 4,
-      background: 'rgba(58,26,26,0.2)',
-      borderRadius: 2,
-      margin: '0 auto 14px',
-    }}
-  />
-);
-
 const Entry = ({ entry }: { entry: JournalEntry }) => {
   const icon = entry.icon ?? KIND_ICON[entry.kind];
   return (
     <div
       style={{
-        background: 'rgba(255, 255, 255, 0.55)',
-        borderRadius: 14,
-        padding: '14px 16px',
+        background: 'rgba(255, 255, 255, 0.45)',
+        border: '2px solid var(--stardew-border-mid)',
+        boxShadow:
+          'inset 0 0 0 1px var(--stardew-border-light), 2px 2px 0 0 var(--stardew-border-dark)',
+        padding: '10px 12px 12px',
         marginBottom: 12,
-        boxShadow: 'inset 0 0 0 1px rgba(58,26,26,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+        fontFamily: 'var(--pixel-font)',
       }}
     >
       <div
@@ -161,11 +170,12 @@ const Entry = ({ entry }: { entry: JournalEntry }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          fontSize: 11,
-          letterSpacing: 1,
+          fontSize: 13,
           textTransform: 'uppercase',
-          opacity: 0.65,
-          marginBottom: 8,
+          letterSpacing: 1.5,
+          color: 'var(--stardew-text-soft)',
+          marginBottom: 6,
+          lineHeight: 1,
         }}
       >
         <span>
@@ -173,7 +183,17 @@ const Entry = ({ entry }: { entry: JournalEntry }) => {
         </span>
         <span>{formatDate(entry.at)}</span>
       </div>
-      <div style={{ fontSize: 15, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{entry.text}</div>
+      <div
+        style={{
+          fontSize: 18,
+          lineHeight: 1.25,
+          color: 'var(--stardew-text)',
+          whiteSpace: 'pre-wrap',
+          letterSpacing: 0.3,
+        }}
+      >
+        {entry.text}
+      </div>
     </div>
   );
 };
@@ -181,11 +201,11 @@ const Entry = ({ entry }: { entry: JournalEntry }) => {
 const Empty = () => (
   <div
     style={{
-      padding: '40px 16px',
+      padding: '32px 16px',
       textAlign: 'center',
-      opacity: 0.55,
-      fontStyle: 'italic',
-      fontSize: 14,
+      color: 'var(--stardew-text-soft)',
+      fontSize: 18,
+      lineHeight: 1.3,
     }}
   >
     the princess has not yet written. take care of her and her letters will gather here.

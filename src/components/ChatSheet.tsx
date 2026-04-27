@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChatMessage, Pose } from '../game/state';
 import { useKeyboardOffset } from '../game/hooks';
+import { PixelPrincess } from './PixelPrincess';
 
 type Props = {
   open: boolean;
@@ -9,15 +10,6 @@ type Props = {
   onSend: (text: string) => Promise<void>;
   onClose: () => void;
   busy: boolean;
-};
-
-const POSE_TO_FILE: Record<Pose, string> = {
-  default: '/art/princess-default.png',
-  coke: '/art/princess-coke.png',
-  jager: '/art/princess-jager.png',
-  joint: '/art/princess-joint.png',
-  sunflower: '/art/princess-sunflower.png',
-  sleep: '/art/princess-sleep.png',
 };
 
 export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props) => {
@@ -55,7 +47,7 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(40, 20, 50, 0.5)',
+        background: 'rgba(40, 20, 50, 0.55)',
         backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
         zIndex: 55,
@@ -66,17 +58,14 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="stardew-box"
         style={{
           width: '100%',
           maxWidth: 520,
           maxHeight: keyboardOffset > 0 ? `calc(100vh - ${keyboardOffset}px - 24px)` : '78vh',
           minHeight: 360,
-          background:
-            'linear-gradient(180deg, #fff5e8 0%, #ffe1c6 100%)',
-          borderRadius: '20px 20px 0 0',
-          border: '4px solid #c4856b',
-          borderBottomWidth: 0,
-          boxShadow: '0 -16px 40px rgba(0,0,0,0.45)',
+          borderRadius: 0,
+          padding: 0,
           transform: mounted
             ? `translateY(${dragOffset - keyboardOffset}px)`
             : 'translateY(100%)',
@@ -86,7 +75,6 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          imageRendering: 'pixelated' as const,
         }}
       >
         <div
@@ -126,13 +114,13 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
             padding: '14px 14px 8px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 8,
-            background: 'rgba(255, 248, 232, 0.4)',
+            gap: 10,
+            background: 'var(--stardew-paper-shade)',
+            backgroundImage:
+              'repeating-linear-gradient(0deg, rgba(74,39,16,0.04) 0 2px, transparent 2px 4px)',
           }}
         >
-          {messages.length === 0 && (
-            <Empty pose={pose} />
-          )}
+          {messages.length === 0 && <Empty pose={pose} />}
           {messages.map((m) => (
             <Bubble key={m.id} message={m} />
           ))}
@@ -144,8 +132,9 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
             display: 'flex',
             gap: 8,
             padding: '10px 12px calc(env(safe-area-inset-bottom, 0) + 12px)',
-            background: 'rgba(255, 240, 220, 0.85)',
-            borderTop: '2px solid rgba(196, 133, 107, 0.3)',
+            background: 'var(--stardew-paper)',
+            borderTop: '3px solid var(--stardew-border-dark)',
+            boxShadow: 'inset 0 2px 0 var(--stardew-border-light)',
           }}
         >
           <input
@@ -155,34 +144,33 @@ export const ChatSheet = ({ open, messages, pose, onSend, onClose, busy }: Props
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSend();
             }}
-            placeholder="say something to her..."
+            placeholder="say something..."
             autoFocus
             style={{
               flex: 1,
               padding: '10px 14px',
-              borderRadius: 14,
-              border: '2px solid rgba(196, 133, 107, 0.4)',
-              background: '#fffaf2',
-              fontSize: 15,
-              color: '#3a1a30',
-              fontFamily: 'inherit',
+              borderRadius: 0,
+              border: '3px solid var(--stardew-border-mid)',
+              boxShadow:
+                'inset 0 0 0 1px var(--stardew-border-dark), 0 0 0 1px var(--stardew-border-dark)',
+              background: '#fff',
+              fontSize: 18,
+              color: 'var(--stardew-text)',
+              fontFamily: 'var(--pixel-font)',
               outline: 'none',
+              letterSpacing: 0.5,
             }}
           />
           <button
             onClick={handleSend}
             disabled={busy || !draft.trim()}
+            className="stardew-button"
             style={{
-              padding: '10px 18px',
-              borderRadius: 14,
-              border: 'none',
-              background: busy || !draft.trim() ? '#d8a8b0' : '#ff5d8f',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 800,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(255,93,143,0.4)',
-              transition: 'transform 0.1s ease',
+              padding: '6px 14px',
+              borderRadius: 0,
+              fontSize: 18,
+              opacity: busy || !draft.trim() ? 0.55 : 1,
+              cursor: busy || !draft.trim() ? 'default' : 'pointer',
             }}
           >
             send
@@ -200,40 +188,45 @@ const Header = ({ pose, onClose }: { pose: Pose; onClose: () => void }) => (
       alignItems: 'center',
       gap: 12,
       padding: '12px 14px',
-      background: 'linear-gradient(180deg, #ffd6b3 0%, #ffb88c 100%)',
-      borderBottom: '3px solid #c4856b',
+      background: 'var(--stardew-paper)',
+      borderBottom: '3px solid var(--stardew-border-dark)',
+      boxShadow: 'inset 0 -2px 0 var(--stardew-border-light)',
+      cursor: 'grab',
     }}
   >
     <Portrait pose={pose} />
-    <div style={{ flex: 1 }}>
+    <div style={{ flex: 1, fontFamily: 'var(--pixel-font)' }}>
       <div
         style={{
-          fontWeight: 900,
-          fontSize: 16,
-          letterSpacing: 1,
-          color: '#3a1a30',
-          textTransform: 'uppercase',
+          fontSize: 22,
+          color: 'var(--stardew-text)',
+          letterSpacing: 0.5,
+          lineHeight: 1,
         }}
       >
         Princess Rajvi
       </div>
-      <div style={{ fontSize: 11, opacity: 0.65, color: '#5a2a40' }}>
+      <div
+        style={{
+          fontSize: 14,
+          color: 'var(--stardew-text-soft)',
+          marginTop: 2,
+          lineHeight: 1,
+        }}
+      >
         her royal highness
       </div>
     </div>
     <button
       onClick={onClose}
       aria-label="close"
+      className="stardew-button"
       style={{
         width: 32,
         height: 32,
-        border: 'none',
-        background: 'rgba(58, 26, 48, 0.15)',
-        borderRadius: 10,
-        fontSize: 18,
-        fontWeight: 700,
-        color: '#3a1a30',
-        cursor: 'pointer',
+        padding: 0,
+        fontSize: 20,
+        lineHeight: 1,
       }}
     >
       ×
@@ -244,41 +237,23 @@ const Header = ({ pose, onClose }: { pose: Pose; onClose: () => void }) => (
 const Portrait = ({ pose }: { pose: Pose }) => (
   <div
     style={{
-      width: 56,
-      height: 56,
-      borderRadius: 12,
-      background: 'rgba(255, 240, 220, 0.6)',
-      border: '2px solid #c4856b',
-      overflow: 'hidden',
+      width: 60,
+      height: 60,
+      background: '#fff',
+      border: '3px solid var(--stardew-border-mid)',
+      boxShadow:
+        'inset 0 0 0 1px var(--stardew-border-dark), 0 0 0 1px var(--stardew-border-dark)',
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-end',
       justifyContent: 'center',
       flexShrink: 0,
+      overflow: 'hidden',
+      padding: 2,
     }}
   >
-    <img
-      src={POSE_TO_FILE[pose]}
-      alt=""
-      onError={(e) => {
-        (e.currentTarget as HTMLImageElement).style.display = 'none';
-      }}
-      style={{
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-        objectPosition: 'top',
-        imageRendering: 'pixelated',
-      }}
-    />
-    <span
-      style={{
-        position: 'absolute',
-        fontSize: 32,
-        zIndex: -1,
-      }}
-    >
-      👑
-    </span>
+    <div style={{ width: '100%', height: '100%' }}>
+      <PixelPrincess pose={pose} drunk={0} high={0} />
+    </div>
   </div>
 );
 
@@ -292,21 +267,23 @@ const Bubble = ({ message }: { message: ChatMessage }) => {
       }}
     >
       <div
+        className={isUser ? '' : 'stardew-box'}
         style={{
           maxWidth: '78%',
-          padding: '10px 14px',
-          borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-          background: isUser ? '#ff5d8f' : '#fff8e8',
-          color: isUser ? '#fff' : '#3a1a30',
-          fontSize: 14.5,
-          lineHeight: 1.4,
-          fontWeight: 600,
-          border: isUser ? 'none' : '2px solid rgba(196, 133, 107, 0.3)',
-          boxShadow: isUser
-            ? '0 2px 6px rgba(255,93,143,0.35)'
-            : '0 2px 6px rgba(0,0,0,0.06)',
+          padding: isUser ? '8px 12px' : '8px 12px 9px',
+          background: isUser ? 'var(--stardew-border-mid)' : undefined,
+          color: isUser ? '#fff5dc' : 'var(--stardew-text)',
+          fontSize: 18,
+          lineHeight: 1.15,
+          fontFamily: 'var(--pixel-font)',
+          letterSpacing: 0.5,
           whiteSpace: 'pre-wrap',
           animation: 'pop 0.25s ease',
+          borderRadius: 0,
+          border: isUser ? '2px solid var(--stardew-border-dark)' : undefined,
+          boxShadow: isUser
+            ? '2px 2px 0 0 var(--stardew-border-dark)'
+            : undefined,
         }}
       >
         {message.text}
@@ -318,28 +295,20 @@ const Bubble = ({ message }: { message: ChatMessage }) => {
 const BusyBubble = () => (
   <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
     <div
+      className="stardew-box"
       style={{
-        padding: '10px 14px',
-        borderRadius: '16px 16px 16px 4px',
-        background: '#fff8e8',
-        border: '2px solid rgba(196, 133, 107, 0.3)',
+        padding: '8px 14px',
         display: 'inline-flex',
         gap: 4,
+        fontFamily: 'var(--pixel-font)',
+        fontSize: 22,
+        letterSpacing: 4,
+        lineHeight: 1,
       }}
     >
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: '#ff5d8f',
-            animation: 'float 1s ease-in-out infinite',
-            animationDelay: `${i * 0.15}s`,
-          }}
-        />
-      ))}
+      <span style={{ animation: 'float 1s ease-in-out infinite' }}>.</span>
+      <span style={{ animation: 'float 1s ease-in-out infinite', animationDelay: '0.15s' }}>.</span>
+      <span style={{ animation: 'float 1s ease-in-out infinite', animationDelay: '0.3s' }}>.</span>
     </div>
   </div>
 );
@@ -353,16 +322,16 @@ const Empty = ({ pose }: { pose: Pose }) => (
       alignItems: 'center',
       justifyContent: 'center',
       textAlign: 'center',
-      opacity: 0.6,
-      padding: 20,
-      fontStyle: 'italic',
-      fontSize: 13,
-      color: '#5a2a40',
+      padding: 30,
+      fontFamily: 'var(--pixel-font)',
+      fontSize: 18,
+      color: 'var(--stardew-text-soft)',
+      lineHeight: 1.2,
     }}
   >
-    <div style={{ fontSize: 36, marginBottom: 6 }}>{pose === 'sleep' ? '💤' : '👑'}</div>
+    <div style={{ fontSize: 36, marginBottom: 8 }}>{pose === 'sleep' ? '💤' : '👑'}</div>
     {pose === 'sleep'
-      ? 'shhh she is sleeping. you can still leave a note.'
-      : 'say anything. she\'ll respond.'}
+      ? "shhh she's sleeping. you can still leave a note."
+      : "say anything. she'll respond."}
   </div>
 );

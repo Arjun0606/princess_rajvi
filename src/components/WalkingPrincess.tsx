@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Pose } from '../game/state';
 import { PixelPrincess } from './PixelPrincess';
 
+type Puff = { id: number; t: number; dx: number };
+let puffId = 0;
+
 type Props = {
   pose: Pose;
   drunk: number;
@@ -37,6 +40,7 @@ export const WalkingPrincess = ({
   const [currentX, setCurrentX] = useState(targetX);
   const [facing, setFacing] = useState<'left' | 'right'>('right');
   const [walking, setWalking] = useState(false);
+  const [puffs, setPuffs] = useState<Puff[]>([]);
   const arriveCb = useRef(onArrive);
   arriveCb.current = onArrive;
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,6 +79,30 @@ export const WalkingPrincess = ({
     const distance = Math.abs(targetX - currentX);
     return Math.max(400, distance * WALK_SPEED_MS);
   })();
+
+  // While walking, periodically drop a dust puff behind the princess.
+  useEffect(() => {
+    if (!walking) return;
+    const interval = setInterval(() => {
+      setPuffs((prev) => [
+        ...prev.slice(-6),
+        {
+          id: ++puffId,
+          t: Date.now(),
+          dx: (Math.random() - 0.5) * 6,
+        },
+      ]);
+    }, 220);
+    return () => clearInterval(interval);
+  }, [walking]);
+
+  // GC old puffs.
+  useEffect(() => {
+    const t = setInterval(() => {
+      setPuffs((prev) => prev.filter((p) => Date.now() - p.t < 700));
+    }, 400);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <div
@@ -115,6 +143,27 @@ export const WalkingPrincess = ({
       }}
     >
       <PixelPrincess pose={pose} drunk={drunk} high={high} />
+
+      {/* Walking dust puffs: small chunky circles trail behind her feet */}
+      {puffs.map((p) => (
+        <div
+          key={p.id}
+          style={{
+            position: 'absolute',
+            bottom: 2,
+            left: '50%',
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: 'rgba(255, 235, 200, 0.7)',
+            transform: 'translateX(-50%)',
+            // @ts-expect-error css var passthrough
+            '--dx': `${p.dx}px`,
+            animation: 'dust-puff 0.7s ease-out forwards',
+            pointerEvents: 'none',
+          }}
+        />
+      ))}
     </div>
   );
 };

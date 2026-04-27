@@ -39,26 +39,22 @@ export const Settings = ({ open, daysTogether, onClose, onClearChat, onResetWorl
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="stardew-box"
         style={{
           width: '100%',
           maxWidth: 480,
-          background: 'linear-gradient(180deg, #fff5e8 0%, #ffe1c6 100%)',
-          borderRadius: '20px 20px 0 0',
-          padding: '20px 22px calc(env(safe-area-inset-bottom, 0) + 28px)',
-          color: '#3a1a30',
-          boxShadow: '0 -16px 40px rgba(0,0,0,0.4)',
+          padding: '20px 22px calc(env(safe-area-inset-bottom, 0) + 22px)',
           transform: mounted ? 'translateY(0)' : 'translateY(100%)',
           transition: 'transform 0.4s cubic-bezier(.2,.7,.2,1)',
-          fontFamily: 'ui-rounded, system-ui, sans-serif',
+          fontFamily: 'var(--pixel-font)',
         }}
       >
         <div
           style={{
             width: 40,
             height: 4,
-            background: 'rgba(58,26,48,0.2)',
-            borderRadius: 2,
-            margin: '0 auto 14px',
+            background: 'var(--stardew-border-mid)',
+            margin: '0 auto 12px',
           }}
         />
         <div
@@ -66,21 +62,21 @@ export const Settings = ({ open, daysTogether, onClose, onClearChat, onResetWorl
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'baseline',
-            marginBottom: 16,
+            marginBottom: 14,
           }}
         >
-          <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: 0.5 }}>
+          <div style={{ fontSize: 26, color: 'var(--stardew-text)', letterSpacing: 0.5, lineHeight: 1 }}>
             the kingdom
           </div>
           <button
             onClick={onClose}
+            className="stardew-button"
             style={{
-              background: 'transparent',
-              border: 'none',
-              fontSize: 22,
-              color: '#3a1a30',
-              cursor: 'pointer',
-              padding: 4,
+              width: 32,
+              height: 32,
+              padding: 0,
+              fontSize: 20,
+              lineHeight: 1,
             }}
           >
             ×
@@ -89,64 +85,57 @@ export const Settings = ({ open, daysTogether, onClose, onClearChat, onResetWorl
 
         <div
           style={{
-            background: 'rgba(255, 255, 255, 0.55)',
-            padding: '12px 14px',
-            borderRadius: 14,
-            marginBottom: 14,
-            fontSize: 13,
+            background: 'rgba(255, 255, 255, 0.45)',
+            border: '2px solid var(--stardew-border-mid)',
+            boxShadow: 'inset 0 0 0 1px var(--stardew-border-light)',
+            padding: '10px 12px',
+            marginBottom: 12,
+            fontSize: 17,
+            lineHeight: 1.25,
+            color: 'var(--stardew-text)',
+            letterSpacing: 0.3,
           }}
         >
-          you and princess rajvi have been friends for{' '}
-          <strong>day {daysTogether + 1}</strong>. long may you reign.
+          you and princess rajvi have been friends for <strong>day {daysTogether + 1}</strong>. long may you reign.
         </div>
 
-        <Row
-          label="clear chat history"
-          subtitle="leaves the journal alone"
-          onTap={onClearChat}
-          tone="neutral"
-        />
+        <Row label="clear chat history" subtitle="leaves the journal alone" onTap={onClearChat} />
 
         {confirmReset ? (
           <div
             style={{
-              border: '2px solid #ff5d8f',
+              border: '3px solid var(--stardew-border-dark)',
               padding: '12px 14px',
-              borderRadius: 14,
-              background: 'rgba(255, 200, 220, 0.4)',
+              background: 'rgba(255, 200, 220, 0.45)',
               marginTop: 6,
+              fontSize: 16,
+              color: 'var(--stardew-text)',
             }}
           >
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
-              this erases everything — princess, garden, journal, chat. are you absolutely sure?
+            <div style={{ marginBottom: 10, lineHeight: 1.25 }}>
+              this erases everything — princess, garden, journal, chat. are you sure?
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={onResetWorld}
+                className="stardew-button"
                 style={{
                   flex: 1,
-                  padding: '10px',
-                  border: 'none',
+                  padding: '8px 0 10px',
+                  fontSize: 16,
                   background: '#c11843',
                   color: '#fff',
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 800,
                 }}
               >
                 yes, reset
               </button>
               <button
                 onClick={() => setConfirmReset(false)}
+                className="stardew-button"
                 style={{
                   flex: 1,
-                  padding: '10px',
-                  border: 'none',
-                  background: 'rgba(58,26,48,0.15)',
-                  color: '#3a1a30',
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 800,
+                  padding: '8px 0 10px',
+                  fontSize: 16,
                 }}
               >
                 no, sorry
@@ -156,7 +145,7 @@ export const Settings = ({ open, daysTogether, onClose, onClearChat, onResetWorl
         ) : (
           <Row
             label="reset the kingdom"
-            subtitle="erases princess, garden, journal — start fresh"
+            subtitle="erases princess, garden, journal — fresh start"
             onTap={() => setConfirmReset(true)}
             tone="danger"
           />
@@ -164,10 +153,12 @@ export const Settings = ({ open, daysTogether, onClose, onClearChat, onResetWorl
 
         <div
           style={{
-            marginTop: 18,
-            fontSize: 11,
-            opacity: 0.55,
+            marginTop: 16,
+            fontSize: 14,
+            opacity: 0.7,
             textAlign: 'center',
+            color: 'var(--stardew-text-soft)',
+            letterSpacing: 0.5,
           }}
         >
           made with care · long may she reign 🌻
@@ -186,26 +177,38 @@ const Row = ({
   label: string;
   subtitle: string;
   onTap: () => void;
-  tone: 'neutral' | 'danger';
+  tone?: 'danger';
 }) => (
   <button
     onClick={onTap}
+    className="stardew-button"
     style={{
       width: '100%',
       textAlign: 'left',
-      background: tone === 'danger' ? 'rgba(255, 93, 143, 0.12)' : 'rgba(255, 255, 255, 0.55)',
-      border: tone === 'danger' ? '1px solid rgba(255, 93, 143, 0.35)' : '1px solid rgba(58,26,48,0.1)',
-      padding: '12px 14px',
-      borderRadius: 14,
+      padding: '10px 14px 12px',
       marginBottom: 8,
       cursor: 'pointer',
-      fontFamily: 'inherit',
     }}
   >
-    <div style={{ fontWeight: 700, fontSize: 14, color: tone === 'danger' ? '#c11843' : '#3a1a30' }}>
+    <div
+      style={{
+        fontSize: 18,
+        color: tone === 'danger' ? '#c11843' : 'var(--stardew-text)',
+        letterSpacing: 0.5,
+        lineHeight: 1,
+      }}
+    >
       {label}
     </div>
-    <div style={{ fontSize: 12, color: '#5a2a40', opacity: 0.6, marginTop: 2 }}>
+    <div
+      style={{
+        fontSize: 14,
+        color: 'var(--stardew-text-soft)',
+        marginTop: 4,
+        lineHeight: 1.1,
+        letterSpacing: 0.3,
+      }}
+    >
       {subtitle}
     </div>
   </button>

@@ -32,6 +32,7 @@ import { Background } from './components/Background';
 import { WalkingPrincess } from './components/WalkingPrincess';
 import { FloorItem } from './components/FloorItem';
 import { Particles } from './components/Particles';
+import { TapIndicator } from './components/TapIndicator';
 import { Stats } from './components/Stats';
 import { ActionTray } from './components/ActionTray';
 import { SpeechBubble } from './components/SpeechBubble';
@@ -82,6 +83,10 @@ export default function App() {
   const [princessX, setPrincessX] = useState(0.5);
   const [floorItems, setFloorItems] = useState<FloorThing[]>([]);
   const pendingPickup = useRef<{ itemId: string; action: ActionKind } | null>(null);
+
+  // Tap indicator + pickup celebrations.
+  const [tapMark, setTapMark] = useState<{ x: number; y: number; nonce: number } | null>(null);
+  const [pickupSparkles, setPickupSparkles] = useState<{ id: number; x: number; bits: number[] }[]>([]);
 
   const lastSassAt = useRef(0);
   const initRanRef = useRef(false);
@@ -342,10 +347,18 @@ export default function App() {
       setFloorItems((prev) =>
         prev.map((i) => (i.id === t.id ? { ...i, picked: true } : i)),
       );
+      // Celebration sparkles erupt around princess at pickup.
+      setPickupSparkles((prev) => [
+        ...prev.slice(-3),
+        { id: Date.now(), x: t.x, bits: [...Array(8).keys()] },
+      ]);
       setTimeout(() => {
         setFloorItems((prev) => prev.filter((i) => i.id !== t.id));
         applyAction(itemKindToAction(t.kind));
       }, 350);
+      setTimeout(() => {
+        setPickupSparkles((prev) => prev.slice(1));
+      }, 1100);
     },
     [applyAction, floorItems],
   );
@@ -365,6 +378,7 @@ export default function App() {
   const onFloorTap = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const x = Math.max(0.08, Math.min(0.92, e.clientX / window.innerWidth));
     setPrincessX(x);
+    setTapMark({ x: e.clientX, y: e.clientY, nonce: Date.now() });
     haptic('light');
   }, []);
 
@@ -544,6 +558,14 @@ export default function App() {
 
       <ShakeBurst nonce={shakeBurst} />
 
+      {tapMark && (
+        <TapIndicator x={tapMark.x} y={tapMark.y} nonce={tapMark.nonce} />
+      )}
+
+      {pickupSparkles.map((p) => (
+        <PickupSparkles key={p.id} xPct={p.x} />
+      ))}
+
       {tappedFlowerData && (
         <FlowerInfo
           name={tappedFlowerData.name}
@@ -594,22 +616,19 @@ const SettingsButton = ({ onClick }: { onClick: () => void }) => (
   <button
     onClick={onClick}
     aria-label="settings"
+    className="stardew-button"
     style={{
       position: 'absolute',
       top: 'calc(env(safe-area-inset-top, 0) + 14px)',
-      right: 80,
-      width: 40,
-      height: 40,
-      borderRadius: 14,
-      border: 'none',
-      background: 'rgba(255, 245, 232, 0.6)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+      right: 78,
+      width: 44,
+      height: 44,
+      padding: 0,
       cursor: 'pointer',
-      fontSize: 18,
-      color: '#3a1a30',
+      fontSize: 20,
+      color: 'var(--stardew-text)',
       zIndex: 11,
+      lineHeight: 1,
     }}
   >
     ⚙︎
@@ -745,6 +764,45 @@ const ShakeBurst = ({ nonce }: { nonce: number }) => {
     </div>
   );
 };
+
+const PickupSparkles = ({ xPct }: { xPct: number }) => (
+  <div
+    style={{
+      position: 'absolute',
+      left: `${xPct * 100}%`,
+      bottom: 'calc(12vh + 50px)',
+      transform: 'translateX(-50%)',
+      width: 20,
+      height: 20,
+      pointerEvents: 'none',
+      zIndex: 6,
+    }}
+  >
+    {[...Array(8)].map((_, i) => {
+      const angle = (i * 360) / 8;
+      const dx = Math.cos((angle * Math.PI) / 180) * 30;
+      return (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: 6,
+            height: 6,
+            background: '#ffd84d',
+            transform: 'rotate(45deg)',
+            boxShadow: '0 0 6px #ffe680',
+            // @ts-expect-error css var passthrough
+            '--dx': `${dx}px`,
+            animation: 'pickup-sparkle 0.9s ease-out forwards',
+            animationDelay: `${i * 30}ms`,
+          }}
+        />
+      );
+    })}
+  </div>
+);
 
 const Splash = ({ visible }: { visible: boolean }) => (
   <div
