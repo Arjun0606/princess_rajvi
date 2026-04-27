@@ -138,6 +138,22 @@ export const WalkingPrincess = ({
         filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.3))',
       }}
     >
+      {/* Ground shadow — soft ellipse at her feet */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: -4,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '70%',
+          height: 8,
+          borderRadius: '50%',
+          background: 'rgba(0,0,0,0.32)',
+          filter: 'blur(2px)',
+          pointerEvents: 'none',
+          zIndex: -1,
+        }}
+      />
       <PixelPrincess pose={pose} drunk={drunk} high={high} />
 
       {puffs.map((p) => (

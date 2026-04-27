@@ -68,6 +68,22 @@ const Wanderer = ({ meta, index }: { meta: CompanionMeta; index: number }) => {
         filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.3))',
       }}
     >
+      {/* Ground shadow */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: -2,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '70%',
+          height: 4,
+          borderRadius: '50%',
+          background: 'rgba(0,0,0,0.32)',
+          filter: 'blur(1px)',
+          pointerEvents: 'none',
+          zIndex: -1,
+        }}
+      />
       <CompanionSprite id={meta.id} />
     </div>
   );
